@@ -293,6 +293,74 @@ module.exports = function (w) {
       w.FPBState.toolTerminal = null;
       w.FPBState.isConnected = false;
     });
+
+    it('FPB v2 forces DebugMonitor mode and disables other options', async () => {
+      w.FPBState.isConnected = true;
+      const mockTerm = new MockTerminal();
+      w.FPBState.toolTerminal = mockTerm;
+      w.FPBState.slotStates = Array(8)
+        .fill()
+        .map(() => ({ occupied: false }));
+      const patchMode = browserGlobals.document.getElementById('patchMode');
+      patchMode.value = 'trampoline';
+      // Add options to simulate real select
+      patchMode.innerHTML = '';
+      const opts = ['trampoline', 'debugmon', 'direct'];
+      opts.forEach((v) => {
+        const opt = browserGlobals.document.createElement('option');
+        opt.value = v;
+        opt.disabled = false;
+        patchMode.appendChild(opt);
+      });
+      patchMode.options = patchMode.querySelectorAll('option');
+      setFetchResponse('/api/fpb/info', {
+        success: true,
+        slots: [],
+        fpb_version: 2,
+      });
+      await w.fpbInfo();
+      assertEqual(patchMode.value, 'debugmon');
+      // Check non-debugmon options are disabled
+      Array.from(patchMode.options).forEach((opt) => {
+        if (opt.value === 'debugmon') {
+          assertTrue(!opt.disabled);
+        } else {
+          assertTrue(opt.disabled);
+        }
+      });
+      w.FPBState.toolTerminal = null;
+      w.FPBState.isConnected = false;
+    });
+
+    it('FPB v1 enables all mode options', async () => {
+      w.FPBState.isConnected = true;
+      const mockTerm = new MockTerminal();
+      w.FPBState.toolTerminal = mockTerm;
+      w.FPBState.slotStates = Array(8)
+        .fill()
+        .map(() => ({ occupied: false }));
+      const patchMode = browserGlobals.document.getElementById('patchMode');
+      patchMode.innerHTML = '';
+      const opts = ['trampoline', 'debugmon', 'direct'];
+      opts.forEach((v) => {
+        const opt = browserGlobals.document.createElement('option');
+        opt.value = v;
+        opt.disabled = true; // start disabled
+        patchMode.appendChild(opt);
+      });
+      patchMode.options = patchMode.querySelectorAll('option');
+      setFetchResponse('/api/fpb/info', {
+        success: true,
+        slots: [],
+        fpb_version: 1,
+      });
+      await w.fpbInfo();
+      Array.from(patchMode.options).forEach((opt) => {
+        assertTrue(!opt.disabled);
+      });
+      w.FPBState.toolTerminal = null;
+      w.FPBState.isConnected = false;
+    });
   });
 
   describe('fpbInjectMulti Function', () => {

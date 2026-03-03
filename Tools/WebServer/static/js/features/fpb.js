@@ -153,6 +153,21 @@ async function fpbInfo(showPopup = false) {
 
       if (data.fpb_version !== undefined) {
         state.fpbVersion = data.fpb_version;
+        // FPB v2 only supports DebugMonitor mode
+        const patchModeSelect = document.getElementById('patchMode');
+        if (patchModeSelect) {
+          if (data.fpb_version >= 2) {
+            patchModeSelect.value = 'debugmon';
+            Array.from(patchModeSelect.options).forEach((opt) => {
+              opt.disabled = opt.value !== 'debugmon';
+            });
+            log.info('FPB v2: DebugMonitor mode enforced');
+          } else {
+            Array.from(patchModeSelect.options).forEach((opt) => {
+              opt.disabled = false;
+            });
+          }
+        }
       }
 
       if (data.slots) {

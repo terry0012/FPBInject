@@ -343,6 +343,19 @@ class FPBInject:
 
         patch_addr = inject_addr | 1
 
+        # FPB v2 only supports DebugMonitor mode
+        fpb_version = (
+            self.device.device_info.get("fpb_version", 1)
+            if self.device and self.device.device_info
+            else 1
+        )
+        if fpb_version >= 2 and patch_mode != "debugmon":
+            logger.warning(
+                f"FPB v2 detected, forcing DebugMonitor mode "
+                f"(requested: {patch_mode})"
+            )
+            patch_mode = "debugmon"
+
         if patch_mode == "trampoline":
             success, msg = self.tpatch(comp, target_addr, patch_addr)
         elif patch_mode == "debugmon":

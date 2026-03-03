@@ -2440,3 +2440,96 @@ class TestInjectMulti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestFPBv2ModeEnforcement(unittest.TestCase):
+    """Test FPB v2 forces DebugMonitor mode"""
+
+    def setUp(self):
+        self.device = DeviceState()
+        self.device.ser = Mock()
+        self.device.ser.isOpen.return_value = True
+        self.device.ser.in_waiting = 0
+        self.fpb = FPBInject(self.device)
+
+    @patch.object(FPBInject, "upload", return_value=(True, {"time": 0.1}))
+    @patch.object(FPBInject, "find_slot_for_target", return_value=(0, False))
+    @patch.object(FPBInject, "dpatch", return_value=(True, "OK"))
+    @patch.object(FPBInject, "tpatch", return_value=(True, "OK"))
+    def test_v2_forces_debugmon_from_trampoline(
+        self, mock_tpatch, mock_dpatch, mock_find, mock_upload
+    ):
+        """FPB v2 should force debugmon even when trampoline requested"""
+        self.device.device_info = {"fpb_version": 2}
+        success, _ = self.fpb.inject_single(
+            target_addr=0x08000100,
+            inject_addr=0x20001000,
+            inject_name="test_func",
+            data=b"\x00" * 64,
+            align_offset=0,
+            patch_mode="trampoline",
+            comp=-1,
+        )
+        self.assertTrue(success)
+        mock_dpatch.assert_called_once()
+        mock_tpatch.assert_not_called()
+
+    @patch.object(FPBInject, "upload", return_value=(True, {"time": 0.1}))
+    @patch.object(FPBInject, "find_slot_for_target", return_value=(0, False))
+    @patch.object(FPBInject, "dpatch", return_value=(True, "OK"))
+    @patch.object(FPBInject, "patch", return_value=(True, "OK"))
+    def test_v2_forces_debugmon_from_direct(
+        self, mock_patch, mock_dpatch, mock_find, mock_upload
+    ):
+        """FPB v2 should force debugmon even when direct requested"""
+        self.device.device_info = {"fpb_version": 2}
+        success, _ = self.fpb.inject_single(
+            target_addr=0x08000100,
+            inject_addr=0x20001000,
+            inject_name="test_func",
+            data=b"\x00" * 64,
+            align_offset=0,
+            patch_mode="direct",
+            comp=-1,
+        )
+        self.assertTrue(success)
+        mock_dpatch.assert_called_once()
+        mock_patch.assert_not_called()
+
+    @patch.object(FPBInject, "upload", return_value=(True, {"time": 0.1}))
+    @patch.object(FPBInject, "find_slot_for_target", return_value=(0, False))
+    @patch.object(FPBInject, "tpatch", return_value=(True, "OK"))
+    def test_v1_allows_trampoline(self, mock_tpatch, mock_find, mock_upload):
+        """FPB v1 should allow trampoline mode"""
+        self.device.device_info = {"fpb_version": 1}
+        success, _ = self.fpb.inject_single(
+            target_addr=0x08000100,
+            inject_addr=0x20001000,
+            inject_name="test_func",
+            data=b"\x00" * 64,
+            align_offset=0,
+            patch_mode="trampoline",
+            comp=-1,
+        )
+        self.assertTrue(success)
+        mock_tpatch.assert_called_once()
+
+    @patch.object(FPBInject, "upload", return_value=(True, {"time": 0.1}))
+    @patch.object(FPBInject, "find_slot_for_target", return_value=(0, False))
+    @patch.object(FPBInject, "tpatch", return_value=(True, "OK"))
+    def test_no_device_info_allows_trampoline(
+        self, mock_tpatch, mock_find, mock_upload
+    ):
+        """No device_info should default to v1 and allow trampoline"""
+        self.device.device_info = None
+        success, _ = self.fpb.inject_single(
+            target_addr=0x08000100,
+            inject_addr=0x20001000,
+            inject_name="test_func",
+            data=b"\x00" * 64,
+            align_offset=0,
+            patch_mode="trampoline",
+            comp=-1,
+        )
+        self.assertTrue(success)
+        mock_tpatch.assert_called_once()
