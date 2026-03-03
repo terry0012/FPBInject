@@ -908,3 +908,5 @@ window.generateId = generateId;
 window.sendSerialData = sendSerialData;
 window.moveToGroup = moveToGroup;
 window.initStepDragListeners = initStepDragListeners;
+window.collectMacroSteps = collectMacroSteps;
+window.populateGroupDropdown = populateGroupDropdown;
