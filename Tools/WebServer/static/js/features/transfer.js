@@ -421,6 +421,13 @@ async function refreshDeviceFiles() {
     return;
   }
 
+  // Determine navigation direction: forward (into subdir) or back (to parent)
+  const prevPath = fileList.dataset.currentPath || '/';
+  const isForward = path.startsWith(prevPath) && path !== prevPath;
+  fileList.classList.remove('nav-forward', 'nav-back');
+  fileList.classList.add(isForward ? 'nav-forward' : 'nav-back');
+  fileList.dataset.currentPath = path;
+
   fileList.innerHTML = '';
   transferSelectedFiles = [];
   transferLastSelectedItem = null;

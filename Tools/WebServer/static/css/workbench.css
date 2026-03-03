@@ -1681,6 +1681,17 @@ input[type="checkbox"] {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;
@@ -1880,7 +1891,15 @@ details[open] > .sidebar-content {
   animation: borderGlow 1s ease-in-out infinite;
 }
 
-/* --- File item entrance --- */
+/* --- File item entrance (direction-aware) --- */
+.device-file-list.nav-forward .device-file-item {
+  animation: slideInRight 0.12s ease-out both;
+}
+
+.device-file-list.nav-back .device-file-item {
+  animation: slideInLeft 0.12s ease-out both;
+}
+
 .device-file-item {
   animation: slideInLeft 0.12s ease-out both;
 }
