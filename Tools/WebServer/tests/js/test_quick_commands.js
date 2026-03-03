@@ -233,6 +233,7 @@ module.exports = function (w) {
     });
 
     it('sendSerialData calls fetch with correct payload', async () => {
+      w.FPBState.isConnected = true;
       let fetchUrl = null;
       let fetchBody = null;
       const origFetch = global.fetch;
@@ -247,6 +248,7 @@ module.exports = function (w) {
       assertEqual(fetchBody.data, 'hello\n');
 
       global.fetch = origFetch;
+      w.FPBState.isConnected = false;
     });
 
     it('sendSerialData handles fetch error gracefully', async () => {

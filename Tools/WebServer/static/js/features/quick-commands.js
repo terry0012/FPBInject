@@ -193,10 +193,11 @@ async function executeQuickCommand(id) {
     if (cmd.type === 'macro' && cmd.steps) {
       await executeMacro(cmd, itemEl);
     } else {
-      let data = cmd.command || '';
-      if (cmd.appendNewline !== false) data = unescapeCommand(data);
-      else data = unescapeCommand(data);
-      await sendSerialData(data);
+      let data = unescapeCommand(cmd.command || '');
+      if (cmd.appendNewline !== false && !data.endsWith('\n')) {
+        data += '\n';
+      }
+      await sendTerminalCommand(data);
     }
   } finally {
     if (itemEl) {
@@ -236,7 +237,7 @@ async function executeMacro(cmd, itemEl) {
     if (step.appendNewline !== false && !stepData.endsWith('\n')) {
       stepData += '\n';
     }
-    await sendSerialData(stepData);
+    await sendTerminalCommand(stepData);
   }
 
   qcMacroAbort = null;
@@ -250,15 +251,8 @@ function stopMacroExecution() {
 }
 
 async function sendSerialData(data) {
-  try {
-    await fetch('/api/serial/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: data }),
-    });
-  } catch (e) {
-    console.error('Send serial data failed:', e);
-  }
+  // Delegate to shared sendTerminalCommand
+  await sendTerminalCommand(data);
 }
 
 /* ===========================
