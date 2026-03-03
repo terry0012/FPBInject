@@ -2059,13 +2059,17 @@ details[open] > .sidebar-content {
 }
 
 .qc-item-actions {
-  display: none;
+  display: flex;
   gap: 2px;
   flex-shrink: 0;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
 .qc-item:hover .qc-item-actions {
-  display: flex;
+  visibility: visible;
+  opacity: 1;
 }
 
 .qc-action-btn {
