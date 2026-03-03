@@ -72,7 +72,8 @@ async function openFileBrowser(path) {
       const parentDiv = document.createElement('div');
       parentDiv.className = 'file-item folder';
       parentDiv.innerHTML = `<i class="codicon codicon-folder"></i><span>..</span>`;
-      parentDiv.onclick = () => navigateTo(parentPath);
+      parentDiv.onclick = () => selectFileBrowserItem(parentDiv, parentPath);
+      parentDiv.ondblclick = () => navigateTo(parentPath);
       list.appendChild(parentDiv);
     }
 
@@ -98,15 +99,7 @@ async function openFileBrowser(path) {
       `;
 
       div.onclick = () => {
-        if (isDir) {
-          if (state.fileBrowserMode === 'dir') {
-            selectFileBrowserItem(div, itemPath);
-          } else {
-            navigateTo(itemPath);
-          }
-        } else {
-          selectFileBrowserItem(div, itemPath);
-        }
+        selectFileBrowserItem(div, itemPath);
       };
 
       div.ondblclick = () => {
