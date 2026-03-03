@@ -408,20 +408,22 @@ function updateAutoInjectProgress(progress, status, statusChanged = false) {
     progressFill.style.width = `${progress}%`;
 
     if (status === 'success') {
-      if (progressText) progressText.textContent = 'Auto-inject complete!';
+      if (progressText)
+        progressText.textContent = t(
+          'statusbar.auto_inject_complete',
+          'Auto-inject complete!',
+        );
       progressFill.style.background = '#4caf50';
     } else if (status === 'failed') {
-      if (progressText) progressText.textContent = 'Auto-inject failed!';
+      if (progressText)
+        progressText.textContent = t(
+          'statusbar.auto_inject_failed',
+          'Auto-inject failed!',
+        );
       progressFill.style.background = '#f44336';
     } else {
-      const statusTexts = {
-        detecting: 'Detecting changes...',
-        generating: 'Generating patch...',
-        compiling: 'Compiling...',
-        injecting: 'Injecting...',
-      };
-      if (progressText)
-        progressText.textContent = statusTexts[status] || status;
+      const statusKey = `statusbar.${status}`;
+      if (progressText) progressText.textContent = t(statusKey, status);
       progressFill.style.background = '';
     }
   });
