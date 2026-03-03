@@ -232,7 +232,11 @@ async function executeMacro(cmd, itemEl) {
     if (signal.aborted) break;
 
     // Send command
-    await sendSerialData(unescapeCommand(step.command || ''));
+    let stepData = unescapeCommand(step.command || '');
+    if (step.appendNewline !== false && !stepData.endsWith('\n')) {
+      stepData += '\n';
+    }
+    await sendSerialData(stepData);
   }
 
   qcMacroAbort = null;
@@ -434,13 +438,13 @@ function initStepDragListeners() {
   });
 }
 
-function addMacroStep(command, delay) {
+function addMacroStep(command, delay, appendNewline) {
   const stepList = document.getElementById('qcStepList');
   if (!stepList) return;
 
-  const idx = stepList.children.length;
   const step = document.createElement('div');
   step.className = 'qc-step';
+  const nlChecked = appendNewline !== false ? ' checked' : '';
   step.innerHTML =
     '<span class="qc-step-drag" title="' +
     t('quick_commands.drag_to_reorder', 'Drag to reorder') +
@@ -448,8 +452,13 @@ function addMacroStep(command, delay) {
     '<input type="text" class="vscode-input qc-step-cmd" value="' +
     escapeHtml(command || '') +
     '" placeholder="command" style="font-family: monospace">' +
+    '<label class="qc-step-nl" title="' +
+    t('quick_commands.append_newline', 'Append newline (\\n)') +
+    '"><input type="checkbox" class="qc-step-nl-check"' +
+    nlChecked +
+    '>\\n</label>' +
     '<input type="number" class="vscode-input qc-step-delay" value="' +
-    (delay || (idx === 0 ? 0 : 500)) +
+    (delay != null ? delay : 0) +
     '" min="0" step="100" title="Delay (ms)"> ' +
     '<span class="qc-step-delay-unit">ms</span>' +
     '<button class="qc-action-btn" onclick="this.parentElement.remove(); updateMacroSummary()" title="' +
@@ -471,7 +480,11 @@ function renderMacroSteps(steps) {
   if (!stepList) return;
   stepList.innerHTML = '';
   for (const s of steps) {
-    addMacroStep(escapeCommandForDisplay(s.command || ''), s.delay || 0);
+    addMacroStep(
+      escapeCommandForDisplay(s.command || ''),
+      s.delay != null ? s.delay : 0,
+      s.appendNewline,
+    );
   }
 }
 
@@ -505,7 +518,12 @@ function collectMacroSteps() {
       step.querySelector('.qc-step-delay')?.value || 0,
       10,
     );
-    steps.push({ command: cmd, delay: Math.max(0, delay) });
+    const appendNl = step.querySelector('.qc-step-nl-check')?.checked !== false;
+    steps.push({
+      command: cmd,
+      delay: Math.max(0, delay),
+      appendNewline: appendNl,
+    });
   }
   return steps;
 }

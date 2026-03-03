@@ -2236,6 +2236,22 @@ details[open] > .sidebar-content {
   opacity: 0.6;
 }
 
+.qc-step-nl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-family: monospace;
+  opacity: 0.7;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.qc-step-nl-check {
+  margin: 0;
+}
+
 .qc-macro-summary {
   font-size: 11px;
   opacity: 0.7;
