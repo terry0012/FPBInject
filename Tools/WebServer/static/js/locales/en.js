@@ -330,7 +330,7 @@ window.i18nResources['en'] = {
         'Path to compile_commands.json for accurate compile flags',
       toolchain_path: 'Path to cross-compiler toolchain bin directory',
       patch_mode:
-        'Trampoline: Use code trampoline (default)\nDebugMonitor: Use DebugMonitor exception\nDirect: Direct code replacement',
+        'Trampoline: Use code trampoline (FPB v1 only)\nDebugMonitor: Use DebugMonitor exception (FPB v1/v2)\nDirect: Direct code replacement (FPB v1 only)\nNote: FPB v2 only supports DebugMonitor mode, will auto-switch',
       auto_compile:
         'Automatically compile and inject when source files are saved',
       watch_dirs: 'Directories to watch for file changes',

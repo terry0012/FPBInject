@@ -321,7 +321,7 @@ window.i18nResources['zh-TW'] = {
         'compile_commands.json 路徑，用於取得準確的編譯參數',
       toolchain_path: '交叉編譯工具鏈 bin 目錄路徑',
       patch_mode:
-        'Trampoline: 使用程式碼跳板（預設）\nDebugMonitor: 使用除錯監視器例外\nDirect: 直接程式碼替換',
+        'Trampoline: 使用程式碼跳板（僅 FPB v1）\nDebugMonitor: 使用除錯監視器例外（FPB v1/v2）\nDirect: 直接程式碼替換（僅 FPB v1）\n注意: FPB v2 僅支援 DebugMonitor 模式，會自動切換',
       auto_compile: '原始檔儲存時自動編譯並注入',
       watch_dirs: '監視檔案變化的目錄',
       chunk_size: '每個上傳資料區塊的大小。較小的值更穩定但更慢。',

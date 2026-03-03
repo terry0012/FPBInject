@@ -157,9 +157,10 @@ CONFIG_SCHEMA: List[ConfigItem] = [
         group=ConfigGroup.INJECT,
         config_type=ConfigType.SELECT,
         default="trampoline",
-        tooltip="Trampoline: Use code trampoline (default)\n"
-        "DebugMonitor: Use DebugMonitor exception\n"
-        "Direct: Direct code replacement",
+        tooltip="Trampoline: Use code trampoline (FPB v1 only)\n"
+        "DebugMonitor: Use DebugMonitor exception (FPB v1/v2)\n"
+        "Direct: Direct code replacement (FPB v1 only)\n"
+        "Note: FPB v2 only supports DebugMonitor mode, will auto-switch",
         options=[
             ("trampoline", "Trampoline"),
             ("debugmon", "DebugMonitor"),
