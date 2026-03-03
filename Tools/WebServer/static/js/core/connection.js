@@ -80,7 +80,7 @@ function handleConnected(port, message = null) {
   btn.classList.add('connected');
   statusEl.textContent = port;
   log.success(message || `Connected to ${port}`);
-  startLogPolling();
+  startLogStreaming();
   fpbInfo();
   updateDisabledState();
 
@@ -100,6 +100,7 @@ function handleDisconnected() {
   btn.classList.remove('connected');
   statusEl.textContent = t('connection.status.disconnected', 'Disconnected');
   log.warn('Disconnected');
+  stopLogStreaming();
   stopLogPolling();
   updateDisabledState();
 

@@ -25,6 +25,7 @@ class DeviceWorker:
         self.device = device_state
         self._cmd_queue = None
         self._wake_event = None
+        self._data_event = threading.Event()  # SSE notification event
         self._worker_thread = None
         self._worker_running = False
         self._timer_manager = None
@@ -99,6 +100,14 @@ class DeviceWorker:
         """Wake up the worker thread immediately."""
         if self._wake_event is not None:
             self._wake_event.set()
+
+    def wait_for_data(self, timeout=1.0):
+        """Wait for new serial data (for SSE)."""
+        if self._data_event is None:
+            return False
+        result = self._data_event.wait(timeout=timeout)
+        self._data_event.clear()
+        return result
 
     def _worker_loop(self):
         """Main worker loop handling queue and timer tasks."""
@@ -198,6 +207,8 @@ class DeviceWorker:
         self.device.raw_log_next_id += 1
         entry = {"id": log_id, "data": data}
         self.device.raw_serial_log.append(entry)
+        # Notify SSE listeners
+        self._data_event.set()
 
         # Write to log file if enabled (line-buffered)
         if self.device.log_file_enabled:

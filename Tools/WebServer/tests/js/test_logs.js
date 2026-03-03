@@ -570,4 +570,250 @@ module.exports = function (w) {
       w.FPBState.rawTerminal = null;
     });
   });
+
+  // ===== SSE Streaming Tests =====
+  describe('SSE Streaming Functions (core/logs.js)', () => {
+    it('startLogStreaming is a function', () =>
+      assertTrue(typeof w.startLogStreaming === 'function'));
+    it('stopLogStreaming is a function', () =>
+      assertTrue(typeof w.stopLogStreaming === 'function'));
+    it('processLogData is a function', () =>
+      assertTrue(typeof w.processLogData === 'function'));
+  });
+
+  describe('startLogStreaming Function', () => {
+    it('resets log IDs', () => {
+      w.FPBState.toolLogNextId = 100;
+      w.FPBState.rawLogNextId = 200;
+      w.FPBState.slotUpdateId = 300;
+      // Mock EventSource
+      const origEventSource = global.EventSource;
+      global.EventSource = function () {
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+      w.startLogStreaming();
+      assertEqual(w.FPBState.toolLogNextId, 0);
+      assertEqual(w.FPBState.rawLogNextId, 0);
+      assertEqual(w.FPBState.slotUpdateId, 0);
+      w.stopLogStreaming();
+      global.EventSource = origEventSource;
+    });
+
+    it('falls back to polling when EventSource not supported', () => {
+      const origEventSource = global.EventSource;
+      global.EventSource = function () {
+        throw new Error('Not supported');
+      };
+      w.FPBState.logPollInterval = null;
+      w.startLogStreaming();
+      // Should have fallen back to polling
+      assertTrue(w.FPBState.logPollInterval !== null);
+      w.stopLogPolling();
+      global.EventSource = origEventSource;
+    });
+  });
+
+  describe('stopLogStreaming Function', () => {
+    it('sets logStreamActive to false', () => {
+      w.FPBState.logStreamActive = true;
+      w.stopLogStreaming();
+      assertEqual(w.FPBState.logStreamActive, false);
+    });
+
+    it('handles called without active stream', () => {
+      w.FPBState.logStreamActive = false;
+      w.stopLogStreaming();
+      assertEqual(w.FPBState.logStreamActive, false);
+    });
+  });
+
+  describe('processLogData Function', () => {
+    it('updates toolLogNextId from data', () => {
+      w.FPBState.toolLogNextId = 0;
+      w.processLogData({ tool_next: 42 });
+      assertEqual(w.FPBState.toolLogNextId, 42);
+    });
+
+    it('updates rawLogNextId from data', () => {
+      w.FPBState.rawLogNextId = 0;
+      w.processLogData({ raw_next: 99 });
+      assertEqual(w.FPBState.rawLogNextId, 99);
+    });
+
+    it('writes tool logs to terminal', () => {
+      const mockTerm = new MockTerminal();
+      w.FPBState.toolTerminal = mockTerm;
+      w.processLogData({ tool_logs: ['Log message 1', 'Log message 2'] });
+      assertTrue(mockTerm._writes.length >= 2);
+      w.FPBState.toolTerminal = null;
+    });
+
+    it('writes raw data to serial terminal', () => {
+      const mockTerm = new MockTerminal();
+      w.FPBState.rawTerminal = mockTerm;
+      w.FPBState.terminalPaused = false;
+      w.processLogData({ raw_data: 'serial output' });
+      assertTrue(
+        mockTerm._writes.some((wr) => wr.msg && wr.msg.includes('serial')),
+      );
+      w.FPBState.rawTerminal = null;
+    });
+
+    it('updates slotStates from slot_data', () => {
+      w.FPBState.slotUpdateId = 0;
+      w.FPBState.slotStates = Array(8)
+        .fill()
+        .map(() => ({ occupied: false }));
+      w.processLogData({
+        slot_update_id: 1,
+        slot_data: {
+          slots: [{ id: 0, occupied: true, func: 'test_func' }],
+        },
+      });
+      assertEqual(w.FPBState.slotUpdateId, 1);
+      assertTrue(w.FPBState.slotStates[0].occupied);
+      assertEqual(w.FPBState.slotStates[0].func, 'test_func');
+    });
+
+    it('handles empty data gracefully', () => {
+      w.processLogData({});
+      assertTrue(true);
+    });
+  });
+
+  describe('SSE EventSource Callbacks', () => {
+    it('onopen stops polling and sets logStreamActive', () => {
+      let esInstance = null;
+      const origEventSource = global.EventSource;
+      global.EventSource = function () {
+        esInstance = this;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+
+      w.FPBState.logPollInterval = 123;
+      w.startLogStreaming();
+
+      // Simulate onopen callback
+      if (esInstance && esInstance.onopen) {
+        esInstance.onopen();
+      }
+      assertEqual(w.FPBState.logStreamActive, true);
+
+      w.stopLogStreaming();
+      global.EventSource = origEventSource;
+    });
+
+    it('onmessage processes valid JSON data', () => {
+      let esInstance = null;
+      const origEventSource = global.EventSource;
+      global.EventSource = function () {
+        esInstance = this;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+
+      w.FPBState.rawLogNextId = 0;
+      w.startLogStreaming();
+
+      // Simulate onmessage with valid data
+      if (esInstance && esInstance.onmessage) {
+        esInstance.onmessage({ data: JSON.stringify({ raw_next: 55 }) });
+      }
+      assertEqual(w.FPBState.rawLogNextId, 55);
+
+      w.stopLogStreaming();
+      global.EventSource = origEventSource;
+    });
+
+    it('onmessage handles invalid JSON gracefully', () => {
+      let esInstance = null;
+      const origEventSource = global.EventSource;
+      global.EventSource = function () {
+        esInstance = this;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+
+      w.startLogStreaming();
+
+      // Simulate onmessage with invalid JSON
+      if (esInstance && esInstance.onmessage) {
+        esInstance.onmessage({ data: 'not valid json' });
+      }
+      // Should not throw
+      assertTrue(true);
+
+      w.stopLogStreaming();
+      global.EventSource = origEventSource;
+    });
+
+    it('onerror falls back to polling after max retries', () => {
+      let esInstance = null;
+      const origEventSource = global.EventSource;
+      const origSetTimeout = global.setTimeout;
+      const timeoutCallbacks = [];
+
+      // Mock setTimeout to capture callbacks
+      global.setTimeout = (cb) => {
+        timeoutCallbacks.push(cb);
+        return 1;
+      };
+
+      global.EventSource = function () {
+        esInstance = this;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+
+      w.FPBState.logPollInterval = null;
+      w.startLogStreaming();
+
+      // First error - should auto-retry
+      if (esInstance && esInstance.onerror) {
+        esInstance.onerror();
+      }
+      // Execute auto-retry timeout callback
+      if (timeoutCallbacks.length > 0) {
+        timeoutCallbacks.shift()();
+      }
+
+      // Second error - should auto-retry
+      if (esInstance && esInstance.onerror) {
+        esInstance.onerror();
+      }
+      if (timeoutCallbacks.length > 0) {
+        timeoutCallbacks.shift()();
+      }
+
+      // Third error - should fall back to polling
+      if (esInstance && esInstance.onerror) {
+        esInstance.onerror();
+      }
+
+      // Should have fallen back to polling (no more setTimeout for retry)
+      assertTrue(w.FPBState.logPollInterval !== null);
+
+      w.stopLogPolling();
+      w.stopLogStreaming();
+      global.EventSource = origEventSource;
+      global.setTimeout = origSetTimeout;
+    });
+  });
 };

@@ -229,3 +229,74 @@ def api_command():
         return jsonify({"success": True})
     else:
         return jsonify({"success": False, "error": "Worker not running"})
+
+
+@bp.route("/logs/stream")
+def api_logs_stream():
+    """Server-Sent Events endpoint for real-time serial data.
+
+    Provides low-latency streaming of serial output using SSE.
+    Falls back to polling if SSE is not supported by client.
+    """
+    from flask import Response
+    import json as json_module
+
+    def generate():
+        """Generator for SSE events."""
+        device = state.device
+        raw_next = device.raw_log_next_id
+        tool_next = device.tool_log_next_id
+        slot_update = device.slot_update_id
+
+        while True:
+            worker = device.worker
+            if worker is None or not worker.is_running():
+                # Worker stopped, send close event
+                yield "event: close\ndata: {}\n\n"
+                break
+
+            # Wait for new data or timeout
+            worker.wait_for_data(timeout=0.5)
+
+            # Collect data since last send
+            has_data = False
+            response = {}
+
+            # Raw serial data
+            raw_snapshot = list(device.raw_serial_log)
+            raw_entries = [e for e in raw_snapshot if e["id"] >= raw_next]
+            if raw_entries:
+                response["raw_data"] = "".join(e.get("data", "") for e in raw_entries)
+                raw_next = device.raw_log_next_id
+                response["raw_next"] = raw_next
+                has_data = True
+
+            # Tool logs
+            tool_snapshot = list(device.tool_log)
+            tool_logs = [
+                e.get("message", "") for e in tool_snapshot if e["id"] >= tool_next
+            ]
+            if tool_logs:
+                response["tool_logs"] = tool_logs
+                tool_next = device.tool_log_next_id
+                response["tool_next"] = tool_next
+                has_data = True
+
+            # Slot updates
+            if device.slot_update_id > slot_update:
+                slot_update = device.slot_update_id
+                response["slot_update_id"] = slot_update
+                response["slot_data"] = _build_slot_response(device, state)
+                has_data = True
+
+            if has_data:
+                yield f"data: {json_module.dumps(response)}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
