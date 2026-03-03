@@ -149,11 +149,15 @@ function createCommandItem(cmd) {
     '<span class="qc-item-actions">' +
     '<button class="qc-action-btn" onclick="event.stopPropagation(); executeQuickCommand(\'' +
     cmd.id +
-    '\')" title="Execute">' +
+    '\')" title="' +
+    t('quick_commands.execute', 'Execute') +
+    '">' +
     '<i class="codicon codicon-play"></i></button>' +
     '<button class="qc-action-btn" onclick="event.stopPropagation(); showQcContextMenu(event, \'' +
     cmd.id +
-    '\')" title="More">' +
+    '\')" title="' +
+    t('quick_commands.more', 'More') +
+    '">' +
     '<i class="codicon codicon-ellipsis"></i></button>' +
     '</span>';
 
@@ -438,7 +442,9 @@ function addMacroStep(command, delay) {
   const step = document.createElement('div');
   step.className = 'qc-step';
   step.innerHTML =
-    '<span class="qc-step-drag" title="Drag to reorder">≡</span>' +
+    '<span class="qc-step-drag" title="' +
+    t('quick_commands.drag_to_reorder', 'Drag to reorder') +
+    '">≡</span>' +
     '<input type="text" class="vscode-input qc-step-cmd" value="' +
     escapeHtml(command || '') +
     '" placeholder="command" style="font-family: monospace">' +
@@ -446,7 +452,9 @@ function addMacroStep(command, delay) {
     (delay || (idx === 0 ? 0 : 500)) +
     '" min="0" step="100" title="Delay (ms)"> ' +
     '<span class="qc-step-delay-unit">ms</span>' +
-    '<button class="qc-action-btn" onclick="this.parentElement.remove(); updateMacroSummary()" title="Remove">' +
+    '<button class="qc-action-btn" onclick="this.parentElement.remove(); updateMacroSummary()" title="' +
+    t('quick_commands.remove', 'Remove') +
+    '">' +
     '<i class="codicon codicon-close"></i></button>';
 
   setupStepDrag(step);
