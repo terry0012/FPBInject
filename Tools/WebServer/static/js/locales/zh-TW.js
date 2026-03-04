@@ -375,7 +375,6 @@ window.i18nResources['zh-TW'] = {
       connection_baudrate_desc: '設定通訊速度（預設：115200）。',
       connection_connect: '連線按鈕',
       connection_connect_desc: '點擊以建立與裝置的連線。',
-      connection_hint: '查看左側邊欄醒目提示的區域。',
 
       device_title: '裝置資訊',
       device_desc: '裝置區域顯示已連線裝置的資訊。',
@@ -430,6 +429,14 @@ window.i18nResources['zh-TW'] = {
       complete_configured: '已造訪',
       complete_skipped: '已跳過',
       complete_hint: '點擊標題列的 🎓 按鈕可隨時重新進入教學。',
+
+      // 門控提示
+      gate_connection: '⏳ 請在左側邊欄連線裝置後，再點擊下一步。',
+      gate_connection_ok: '✅ 裝置連線成功！',
+      gate_device: '⏳ 請點擊「偵測裝置」或「取得資訊」來偵測裝置。',
+      gate_device_ok: '✅ 裝置偵測成功！',
+      gate_transfer: '⏳ 請在傳輸區域點擊「重新整理」載入檔案列表。',
+      gate_transfer_ok: '✅ 檔案列表載入成功！',
     },
   },
 };

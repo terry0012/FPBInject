@@ -4,13 +4,45 @@
 
 const TUTORIAL_STORAGE_KEY = 'fpbinject_tutorial_completed';
 
+/**
+ * Gate functions: return true when the step's prerequisite is satisfied.
+ * Each gated step also has a gateHint (i18n key for the waiting message)
+ * and a gateOk (i18n key for the success message).
+ */
 const TUTORIAL_STEPS = [
   { id: 'welcome', sidebar: null },
   { id: 'appearance', sidebar: null },
-  { id: 'connection', sidebar: 'details-connection' },
-  { id: 'device', sidebar: 'details-device' },
+  {
+    id: 'connection',
+    sidebar: 'details-connection',
+    gate: () => !!(window.FPBState && window.FPBState.isConnected),
+    gateHint: 'tutorial.gate_connection',
+    gateOk: 'tutorial.gate_connection_ok',
+  },
+  {
+    id: 'device',
+    sidebar: 'details-device',
+    gate: () => {
+      // Device detected = memoryInfo has been populated by fpbInfo()
+      const memEl = document.getElementById('memoryInfo');
+      if (!memEl) return false;
+      return !memEl.querySelector('[data-i18n="panels.memory_not_available"]');
+    },
+    gateHint: 'tutorial.gate_device',
+    gateOk: 'tutorial.gate_device_ok',
+  },
   { id: 'quickcmd', sidebar: 'details-quick-commands' },
-  { id: 'transfer', sidebar: 'details-transfer' },
+  {
+    id: 'transfer',
+    sidebar: 'details-transfer',
+    gate: () => {
+      const fileList = document.getElementById('deviceFileList');
+      if (!fileList) return false;
+      return !!fileList.querySelector('.device-file-item');
+    },
+    gateHint: 'tutorial.gate_transfer',
+    gateOk: 'tutorial.gate_transfer_ok',
+  },
   { id: 'symbols', sidebar: 'details-symbols' },
   { id: 'config', sidebar: 'details-configuration' },
   { id: 'complete', sidebar: null },
@@ -18,8 +50,9 @@ const TUTORIAL_STEPS = [
 
 let tutorialStep = 0;
 let tutorialActive = false;
-let tutorialStepConfigured = {}; // Track which steps user configured
+let tutorialStepConfigured = {};
 let currentHighlightedElement = null;
+let tutorialGatePollTimer = null;
 
 /* ===========================
    UI HIGHLIGHTING
@@ -31,32 +64,26 @@ function highlightElement(selector) {
   const element = document.querySelector(selector);
   if (!element) return;
 
-  // Find the parent sidebar-section of the target
   const targetSection = element.closest('.sidebar-section');
 
-  // Dim all other sidebar-section containers
-  const allSections = document.querySelectorAll('.sidebar .sidebar-section');
-  allSections.forEach((section) => {
+  document.querySelectorAll('.sidebar .sidebar-section').forEach((section) => {
     if (section !== targetSection) {
       section.classList.add('tutorial-dimmed');
     }
   });
 
-  // Highlight target
   element.classList.add(
     'tutorial-highlight-target',
     'tutorial-highlight-pulse',
   );
   currentHighlightedElement = element;
 
-  // Scroll into view
   setTimeout(() => {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 100);
 }
 
 function clearHighlight() {
-  // Remove all dimmed classes
   document.querySelectorAll('.tutorial-dimmed').forEach((el) => {
     el.classList.remove('tutorial-dimmed');
   });
@@ -73,7 +100,6 @@ function clearHighlight() {
 function activateSidebarForStep(sidebarId) {
   if (!sidebarId) return;
 
-  // Find which activity bar button corresponds to this sidebar section
   const sectionMap = {
     'details-connection': 'connection',
     'details-device': 'device',
@@ -88,13 +114,44 @@ function activateSidebarForStep(sidebarId) {
     activateSection(sectionName);
   }
 
-  // Open the details element
   setTimeout(() => {
     const details = document.getElementById(sidebarId);
     if (details && details.tagName === 'DETAILS') {
       details.open = true;
     }
   }, 200);
+}
+
+/* ===========================
+   GATE SYSTEM
+   =========================== */
+
+function getStepGateStatus(step) {
+  if (!step || !step.gate) return { gated: false, passed: true };
+  return { gated: true, passed: step.gate() };
+}
+
+function startGatePoll() {
+  stopGatePoll();
+  tutorialGatePollTimer = setInterval(() => {
+    if (!tutorialActive) {
+      stopGatePoll();
+      return;
+    }
+    const step = TUTORIAL_STEPS[tutorialStep];
+    const { gated, passed } = getStepGateStatus(step);
+    if (gated && passed) {
+      stopGatePoll();
+      renderTutorialStep();
+    }
+  }, 500);
+}
+
+function stopGatePoll() {
+  if (tutorialGatePollTimer) {
+    clearInterval(tutorialGatePollTimer);
+    tutorialGatePollTimer = null;
+  }
 }
 
 /* ===========================
@@ -151,11 +208,11 @@ function tutorialSkipAll() {
 function finishTutorial() {
   tutorialActive = false;
   clearHighlight();
+  stopGatePoll();
   localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
   const overlay = document.getElementById('tutorialOverlay');
   if (overlay) overlay.classList.remove('show');
 
-  // Save any config changes made during tutorial
   if (typeof saveConfig === 'function') {
     saveConfig(true);
   }
@@ -182,12 +239,10 @@ function renderTutorialStep() {
 
   if (!body || !step) return;
 
-  // Clear previous highlights
   clearHighlight();
 
   // Title
-  const titleKey = `tutorial.${step.id}_title`;
-  if (title) title.textContent = t(titleKey, step.id);
+  if (title) title.textContent = t(`tutorial.${step.id}_title`, step.id);
 
   // Step count
   if (stepCount) {
@@ -211,7 +266,6 @@ function renderTutorialStep() {
     }, 300);
   }
 
-  // Progress dots
   renderTutorialProgress();
 
   // Button visibility
@@ -222,14 +276,42 @@ function renderTutorialStep() {
   if (skipBtn) skipBtn.style.display = isLast ? 'none' : '';
   if (skipAllBtn) skipAllBtn.style.display = isLast ? 'none' : '';
 
+  // Gate: disable Next until condition met
+  const { gated, passed } = getStepGateStatus(step);
+
   if (nextBtn) {
     nextBtn.textContent = isLast
       ? t('tutorial.finish', 'Get Started')
       : t('tutorial.next', 'Next');
+
+    if (gated && !passed) {
+      nextBtn.disabled = true;
+      nextBtn.title = step.gateHint ? t(step.gateHint, '') : '';
+    } else {
+      nextBtn.disabled = false;
+      nextBtn.title = '';
+    }
   }
 
-  // Translate dynamic content
+  // Start/stop gate polling
+  stopGatePoll();
+  if (gated && !passed) {
+    startGatePoll();
+  }
+
   if (typeof translatePage === 'function') translatePage();
+}
+
+function renderGateStatus(step) {
+  const { gated, passed } = getStepGateStatus(step);
+  if (!gated) return '';
+
+  const statusClass = passed ? 'success' : '';
+  const statusText = passed
+    ? t(step.gateOk || 'tutorial.gate_ok', '✅ Ready!')
+    : t(step.gateHint || 'tutorial.gate_waiting', '⏳ Waiting...');
+
+  return `<div class="tutorial-connect-status ${statusClass}" style="display: block;">${statusText}</div>`;
 }
 
 function renderTutorialProgress() {
@@ -294,6 +376,7 @@ const stepRenderers = {
   },
 
   connection() {
+    const step = TUTORIAL_STEPS.find((s) => s.id === 'connection');
     return `
       <p>${t('tutorial.connection_desc', 'The Connection section lets you connect to your device via serial port.')}</p>
       <div class="tutorial-feature-list">
@@ -319,13 +402,12 @@ const stepRenderers = {
           </div>
         </div>
       </div>
-      <p class="tutorial-hint" style="margin-top: 12px; opacity: 0.7; font-size: 12px;">
-        ${t('tutorial.connection_hint', 'Look at the highlighted section on the left sidebar.')}
-      </p>
+      ${renderGateStatus(step)}
     `;
   },
 
   device() {
+    const step = TUTORIAL_STEPS.find((s) => s.id === 'device');
     return `
       <p>${t('tutorial.device_desc', 'The Device section shows information about your connected device.')}</p>
       <div class="tutorial-feature-list">
@@ -351,6 +433,7 @@ const stepRenderers = {
           </div>
         </div>
       </div>
+      ${renderGateStatus(step)}
     `;
   },
 
@@ -384,6 +467,7 @@ const stepRenderers = {
   },
 
   transfer() {
+    const step = TUTORIAL_STEPS.find((s) => s.id === 'transfer');
     return `
       <p>${t('tutorial.transfer_desc', 'The Transfer section handles file operations with your device.')}</p>
       <div class="tutorial-feature-list">
@@ -409,6 +493,7 @@ const stepRenderers = {
           </div>
         </div>
       </div>
+      ${renderGateStatus(step)}
     `;
   },
 
@@ -527,3 +612,5 @@ window.tutorialSkipAll = tutorialSkipAll;
 window.tutorialGoTo = tutorialGoTo;
 window.finishTutorial = finishTutorial;
 window.renderTutorialStep = renderTutorialStep;
+window.renderGateStatus = renderGateStatus;
+window.getStepGateStatus = getStepGateStatus;

@@ -1039,8 +1039,13 @@ body.resizing-panel .sash {
   transition: background 0.1s;
 }
 
-.vscode-btn:hover {
+.vscode-btn:hover:not(:disabled) {
   background: var(--vscode-button-hover);
+}
+
+.vscode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .vscode-btn.secondary {

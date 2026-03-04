@@ -374,7 +374,6 @@ window.i18nResources['zh-CN'] = {
       connection_baudrate_desc: '设置通信速度（默认：115200）。',
       connection_connect: '连接按钮',
       connection_connect_desc: '点击以建立与设备的连接。',
-      connection_hint: '查看左侧边栏高亮显示的区域。',
 
       device_title: '设备信息',
       device_desc: '设备区域显示已连接设备的信息。',
@@ -429,6 +428,14 @@ window.i18nResources['zh-CN'] = {
       complete_configured: '已访问',
       complete_skipped: '已跳过',
       complete_hint: '点击标题栏的 🎓 按钮可随时重新进入教学。',
+
+      // 门控提示
+      gate_connection: '⏳ 请在左侧边栏连接设备后，再点击下一步。',
+      gate_connection_ok: '✅ 设备连接成功！',
+      gate_device: '⏳ 请点击「探测设备」或「获取信息」来检测设备。',
+      gate_device_ok: '✅ 设备探测成功！',
+      gate_transfer: '⏳ 请在传输区域点击「刷新」加载文件列表。',
+      gate_transfer_ok: '✅ 文件列表加载成功！',
     },
   },
 };

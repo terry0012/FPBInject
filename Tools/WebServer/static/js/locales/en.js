@@ -394,7 +394,6 @@ window.i18nResources['en'] = {
       connection_connect: 'Connect Button',
       connection_connect_desc:
         'Click to establish connection with your device.',
-      connection_hint: 'Look at the highlighted section on the left sidebar.',
 
       device_title: 'Device Information',
       device_desc:
@@ -464,6 +463,17 @@ window.i18nResources['en'] = {
       complete_skipped: 'Skipped',
       complete_hint:
         'Click the 🎓 button in the title bar to restart this tutorial anytime.',
+
+      // Gate messages
+      gate_connection:
+        '⏳ Please connect to your device using the sidebar, then click Next.',
+      gate_connection_ok: '✅ Device connected successfully!',
+      gate_device:
+        '⏳ Please click "Detect Device" or "Get Info" to detect your device.',
+      gate_device_ok: '✅ Device detected successfully!',
+      gate_transfer:
+        '⏳ Please click "Refresh" in the Transfer section to load the file list.',
+      gate_transfer_ok: '✅ File list loaded successfully!',
     },
   },
 };
