@@ -433,6 +433,10 @@ window.i18nResources['zh-TW'] = {
       config_inject_desc: '補丁模式、檔案監視和自動注入選項。',
       config_more: '更多選項',
       config_more_desc: '串列埠、終端、日誌和進階設定。',
+      config_autoinject_title: '自動注入原理',
+      config_autoinject_desc:
+        '啟用後，系統會監控您指定目錄中的檔案修改動作。任何包含 <code>/* FPB_INJECT */</code> 標記的檔案都會被自動編譯，並透過 FPB 硬體在執行時注入裝置，替換原始函式，無需重新燒錄韌體。',
+      config_autoinject_example: '補丁檔案範例：',
       config_hint: '展開每個部分以設定選項。',
 
       complete_title: '教學完成！',

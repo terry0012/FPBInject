@@ -466,6 +466,10 @@ window.i18nResources['en'] = {
       config_inject_desc: 'Patch mode, file watch, and auto-injection options.',
       config_more: 'More Options',
       config_more_desc: 'Serial, terminal, logging, and advanced settings.',
+      config_autoinject_title: 'How Auto-Inject Works',
+      config_autoinject_desc:
+        'When enabled, the system monitors file changes in your specified watch directories. Any file containing the <code>/* FPB_INJECT */</code> marker will be automatically compiled and injected into the device at runtime via FPB hardware, replacing the original function without reflashing.',
+      config_autoinject_example: 'Example patch file:',
       config_hint: 'Expand each section to configure settings.',
 
       complete_title: 'Tutorial Complete!',

@@ -645,6 +645,23 @@ const stepRenderers = {
     return `
       <p>${t('tutorial.config_desc', 'The Configuration section contains all workbench settings.')}</p>
       ${renderConfigGateChecklist()}
+      <div style="margin-top: 14px; padding: 12px; background: var(--vscode-input-bg); border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-weight: 600; font-size: 13px;">
+          <i class="codicon codicon-lightbulb" style="color: var(--vscode-button-bg);"></i>
+          ${t('tutorial.config_autoinject_title', 'How Auto-Inject Works')}
+        </p>
+        <p style="margin: 0 0 8px; font-size: 12px; line-height: 1.6;">
+          ${t('tutorial.config_autoinject_desc', 'When enabled, the system watches your source files. Any file containing the <code>/* FPB_INJECT */</code> marker will be automatically compiled and injected into the device at runtime via FPB hardware, replacing the original function without reflashing.')}
+        </p>
+        <p style="margin: 0 0 6px; font-size: 11px; opacity: 0.7;">
+          ${t('tutorial.config_autoinject_example', 'Example patch file:')}
+        </p>
+        <pre style="margin: 0; padding: 8px 10px; background: var(--vscode-editor-bg, #1e1e1e); border-radius: 4px; font-size: 12px; line-height: 1.5; overflow-x: auto;"><code><span style="color: #6a9955;">/* FPB_INJECT */</span>
+<span style="color: #569cd6;">void</span> <span style="color: #dcdcaa;">my_function</span>(<span style="color: #569cd6;">int</span> arg)
+{
+    <span style="color: #6a9955;">// your code here</span>
+}</code></pre>
+      </div>
       <p class="tutorial-hint" style="margin-top: 12px; opacity: 0.7; font-size: 12px;">
         ${t('tutorial.config_hint', 'Expand each section to configure settings.')}
       </p>
