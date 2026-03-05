@@ -9,10 +9,6 @@ window.i18nResources['zh-CN'] = {
     sidebar: {
       connection: '连接',
       config: '配置',
-      explorer: '浏览器',
-      device: '热补丁',
-      transfer: '文件传输',
-      symbols: '符号',
       file_transfer: '文件传输',
       quick_commands: '快捷指令',
     },
@@ -65,7 +61,6 @@ window.i18nResources['zh-CN'] = {
       connect: '连接',
       disconnect: '断开',
       connecting: '连接中...',
-      refresh: '刷新',
       advanced_settings: '高级设置',
       data_bits: '数据位',
       parity: '校验位',
@@ -86,7 +81,6 @@ window.i18nResources['zh-CN'] = {
     // 按钮
     buttons: {
       inject: '注入',
-      compile: '编译',
       browse: '浏览',
       save: '保存',
       cancel: '取消',
@@ -94,25 +88,19 @@ window.i18nResources['zh-CN'] = {
       refresh: '刷新',
       add: '添加',
       remove: '移除',
-      start: '开始',
-      stop: '停止',
     },
 
     // 标签页
     tabs: {
-      patch: '补丁',
       symbols: '符号',
       output: '输出',
       serial: '串口',
-      problems: '问题',
     },
 
     // 面板
     panels: {
       fpb_slots: '热补丁',
       slot_empty: '空闲',
-      slot_occupied: '已占用',
-      no_file_open: '未打开文件',
       no_symbols: '未加载符号',
       memory_not_available: '内存信息不可用',
       click_refresh: '点击"刷新"加载文件',
@@ -138,13 +126,6 @@ window.i18nResources['zh-CN'] = {
 
     // 消息
     messages: {
-      config_saved: '配置已保存',
-      connect_success: '连接成功',
-      connect_failed: '连接失败',
-      inject_success: '注入成功',
-      inject_failed: '注入失败',
-      compile_success: '编译成功',
-      compile_failed: '编译失败',
       // 设备探测消息
       not_connected: '未连接到设备',
       ping_success: '设备已探测到',
@@ -213,7 +194,6 @@ window.i18nResources['zh-CN'] = {
       // 重新注入
       no_inject_cache: '没有可重新注入的缓存',
       confirm_reinject: '确定重新注入 {{count}} 个文件？',
-      reinject_success: '重新注入完成：{{count}} 个成功',
       reinject_partial: '重新注入：{{success}} 个成功，{{fail}} 个失败',
     },
 
@@ -277,8 +257,6 @@ window.i18nResources['zh-CN'] = {
       file: '文件',
       folder: '文件夹',
       download: '下载',
-      upload: '上传',
-      cancel: '取消',
     },
 
     // 设备
@@ -423,25 +401,6 @@ window.i18nResources['zh-CN'] = {
       symbols_decompile: '反编译',
       symbols_decompile_desc: '使用 Ghidra 生成伪 C 代码以便更好理解。',
 
-      editor_title: '代码编辑器',
-      editor_desc: '编辑器区域用于编写和修改补丁代码。',
-      editor_tabs: '文件标签',
-      editor_tabs_desc: '打开多个补丁文件，通过标签页在它们之间切换。',
-      editor_edit: '代码编辑',
-      editor_edit_desc:
-        '使用语法高亮编写补丁代码。使用 <code>/* FPB_INJECT */</code> 标记来指定可注入的函数。',
-      editor_inject: '保存和注入',
-      editor_inject_desc:
-        '保存补丁文件并点击注入按钮将其应用到设备，或启用自动注入实现免手动操作。',
-
-      logs_title: '输出和串口',
-      logs_desc: '底部面板显示系统输出和串口通信。',
-      logs_output: '输出',
-      logs_output_desc: '查看编译结果、注入日志和系统消息。',
-      logs_serial: '串口',
-      logs_serial_desc:
-        '交互式串口终端，用于与设备直接通信。您可以发送命令并查看实时响应。',
-
       config_title: '配置',
       config_desc: '配置区域包含所有工作台设置。',
       config_ui: 'UI 设置',
@@ -479,8 +438,6 @@ window.i18nResources['zh-CN'] = {
       gate_config_toolchain: '工具链',
       gate_config_watchdirs: '监控目录',
       gate_config_autoinject: '自动注入',
-      gate_logs: '⏳ 请点击底部面板的「串口」标签。',
-      gate_logs_ok: '✅ 串口终端已激活！',
 
       // 注入体验步骤
       demo_search_title: '搜索目标函数',

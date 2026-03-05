@@ -24,6 +24,39 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 JS_CORE_DIR = os.path.join(BASE_DIR, "static", "js", "core")
 
 
+def _find_matching_brace(text, start):
+    """Find the position after the matching closing brace, skipping string contents.
+
+    Args:
+        text: The text to search in.
+        start: Position right after the opening '{'.
+
+    Returns:
+        Position right after the matching '}'.
+    """
+    depth = 1
+    pos = start
+    length = len(text)
+    while depth > 0 and pos < length:
+        ch = text[pos]
+        if ch in ("'", '"', "`"):
+            # Skip string literal
+            quote = ch
+            pos += 1
+            while pos < length and text[pos] != quote:
+                if text[pos] == "\\":
+                    pos += 1  # skip escaped char
+                pos += 1
+            pos += 1  # skip closing quote
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+        pos += 1
+    return pos
+
+
 class TestTranslationFiles(unittest.TestCase):
     """Test translation file structure and completeness."""
 
@@ -336,30 +369,43 @@ class TestTranslationConsistency(unittest.TestCase):
 
         def extract_nested_keys(text, prefix=""):
             """Recursively extract nested keys."""
-            # Match key: value or key: { patterns
-            pattern = r"(\w+)\s*:\s*(?:(\{)|['\"]([^'\"]*)['\"]|([^,\n\}]+))"
-            for match in re.finditer(pattern, text):
+            pattern = re.compile(
+                r"(\w+)\s*:\s*(?:(\{)|['\"]([^'\"]*)['\"]|([^,\n\}]+))"
+            )
+            pos = 0
+            while pos < len(text):
+                match = pattern.search(text, pos)
+                if not match:
+                    break
                 key = match.group(1)
                 full_key = f"{prefix}.{key}" if prefix else key
                 if match.group(2):  # Opening brace - nested object
-                    # Find matching closing brace
                     start = match.end()
-                    depth = 1
-                    end = start
-                    while depth > 0 and end < len(text):
-                        if text[end] == "{":
-                            depth += 1
-                        elif text[end] == "}":
-                            depth -= 1
-                        end += 1
-                    nested_content = text[start : end - 1]
-                    extract_nested_keys(nested_content, full_key)
+                    end = _find_matching_brace(text, start)
+                    extract_nested_keys(text[start : end - 1], full_key)
+                    pos = end  # skip past the nested block
                 else:
                     keys.add(full_key)
+                    # Skip past the string value to avoid false matches
+                    val_start = match.end()
+                    # Find the quote that started the value
+                    quote_idx = (
+                        match.start(3)
+                        if match.group(3) is not None
+                        else match.start(4) if match.group(4) is not None else -1
+                    )
+                    if quote_idx >= 0 and text[quote_idx - 1] in ("'", '"'):
+                        quote_char = text[quote_idx - 1]
+                        end_pos = match.end()
+                        while end_pos < len(text) and text[end_pos - 1] != quote_char:
+                            end_pos += 1
+                        pos = end_pos
+                    else:
+                        pos = match.end()
 
         # Find translation object content
         translation_match = re.search(
-            r"translation:\s*\{(.+)\}\s*\};", content, re.DOTALL
+            r"translation:\s*\{(.+)\}\s*,?\s*\};", content, re.DOTALL
         )
         if translation_match:
             extract_nested_keys(translation_match.group(1))
@@ -1461,26 +1507,32 @@ class TestDeepKeyConsistency(unittest.TestCase):
         keys = set()
 
         def extract(text, prefix=""):
-            pattern = r"(\w+)\s*:\s*(?:(\{)|['\"])"
-            for match in re.finditer(pattern, text):
+            pattern = re.compile(r"(\w+)\s*:\s*(?:(\{)|['\"])")
+            pos = 0
+            while pos < len(text):
+                match = pattern.search(text, pos)
+                if not match:
+                    break
                 key = match.group(1)
                 full_key = f"{prefix}.{key}" if prefix else key
                 if match.group(2):  # nested object
                     start = match.end()
-                    depth = 1
-                    end = start
-                    while depth > 0 and end < len(text):
-                        if text[end] == "{":
-                            depth += 1
-                        elif text[end] == "}":
-                            depth -= 1
-                        end += 1
+                    end = _find_matching_brace(text, start)
                     extract(text[start : end - 1], full_key)
+                    pos = end  # skip past the nested block
                 else:
                     keys.add(full_key)
+                    # Skip past the closing quote of the string value
+                    quote_char = text[match.end() - 1]
+                    end_pos = match.end()
+                    while end_pos < len(text) and text[end_pos] != quote_char:
+                        if text[end_pos] == "\\":
+                            end_pos += 1
+                        end_pos += 1
+                    pos = end_pos + 1
 
         translation_match = re.search(
-            r"translation:\s*\{(.+)\}\s*\};", content, re.DOTALL
+            r"translation:\s*\{(.+)\}\s*,?\s*\};", content, re.DOTALL
         )
         if translation_match:
             extract(translation_match.group(1))
@@ -1536,6 +1588,11 @@ class TestUnreferencedTranslations(unittest.TestCase):
         "tooltips.",
         # connection.status.<key> used via t('connection.status.' + state)
         "connection.status.",
+        # statusbar.<status> used via t(`statusbar.${status}`)
+        "statusbar.",
+        # tutorial.js builds keys dynamically: t(`tutorial.${step.id}_title`)
+        # Orphaned tutorial keys are caught by TestTutorialTranslationKeys
+        "tutorial.",
     ]
 
     def _parse_all_keys(self, content):
@@ -1543,26 +1600,32 @@ class TestUnreferencedTranslations(unittest.TestCase):
         keys = set()
 
         def extract(text, prefix=""):
-            pattern = r"(\w+)\s*:\s*(?:(\{)|['\"])"
-            for match in re.finditer(pattern, text):
+            pattern = re.compile(r"(\w+)\s*:\s*(?:(\{)|['\"])")
+            pos = 0
+            while pos < len(text):
+                match = pattern.search(text, pos)
+                if not match:
+                    break
                 key = match.group(1)
                 full_key = f"{prefix}.{key}" if prefix else key
                 if match.group(2):
                     start = match.end()
-                    depth = 1
-                    end = start
-                    while depth > 0 and end < len(text):
-                        if text[end] == "{":
-                            depth += 1
-                        elif text[end] == "}":
-                            depth -= 1
-                        end += 1
+                    end = _find_matching_brace(text, start)
                     extract(text[start : end - 1], full_key)
+                    pos = end  # skip past the nested block
                 else:
                     keys.add(full_key)
+                    # Skip past the closing quote of the string value
+                    quote_char = text[match.end() - 1]
+                    end_pos = match.end()
+                    while end_pos < len(text) and text[end_pos] != quote_char:
+                        if text[end_pos] == "\\":
+                            end_pos += 1
+                        end_pos += 1
+                    pos = end_pos + 1
 
         translation_match = re.search(
-            r"translation:\s*\{(.+)\}\s*\};", content, re.DOTALL
+            r"translation:\s*\{(.+)\}\s*,?\s*\};", content, re.DOTALL
         )
         if translation_match:
             extract(translation_match.group(1))
@@ -1584,7 +1647,7 @@ class TestUnreferencedTranslations(unittest.TestCase):
                     attr_match = re.match(r"\[\w+\](.+)", part)
                     refs.add(attr_match.group(1) if attr_match else part)
 
-        # 2. JS t('key') / t("key") calls
+        # 2. JS t('key') / t("key") calls and data-i18n in JS-generated HTML
         for js_dir in self.JS_DIRS:
             if not os.path.isdir(js_dir):
                 continue
@@ -1597,6 +1660,11 @@ class TestUnreferencedTranslations(unittest.TestCase):
                 # Match t('key' or t("key"
                 for m in re.findall(r"""t\(\s*['"]([^'"]+)['"]""", content):
                     refs.add(m)
+                # Match data-i18n="key" in JS-generated HTML strings
+                for m in re.findall(r'data-i18n=["\']([^"\']+)["\']', content):
+                    for part in m.split(";"):
+                        attr_match = re.match(r"\[\w+\](.+)", part)
+                        refs.add(attr_match.group(1) if attr_match else part)
 
         return refs
 
@@ -1630,6 +1698,57 @@ class TestUnreferencedTranslations(unittest.TestCase):
             + "\n".join(f"   - {k}" for k in sorted(unreferenced)[:40])
             + "\n\nIf these keys are referenced dynamically, add their prefix to "
             "DYNAMIC_KEY_PREFIXES in TestUnreferencedTranslations.",
+        )
+
+    def test_scanner_sanity_check(self):
+        """Verify the scanner actually parses keys and collects references.
+
+        Guards against regex bugs that silently return empty sets,
+        which would make test_no_unreferenced_translations vacuously pass.
+        """
+        en_path = os.path.join(LOCALES_DIR, "en.js")
+        with open(en_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        all_keys = self._parse_all_keys(content)
+        referenced = self._collect_referenced_keys()
+
+        # Parser must extract a meaningful number of keys
+        self.assertGreater(
+            len(all_keys),
+            50,
+            f"_parse_all_keys returned only {len(all_keys)} keys — "
+            "regex likely broken",
+        )
+
+        # Spot-check: well-known nested keys must have dotted paths
+        expected_keys = [
+            "editor.slot",
+            "connection.port",
+            "messages.backend_disconnected",
+        ]
+        for key in expected_keys:
+            self.assertIn(
+                key,
+                all_keys,
+                f"Expected key '{key}' not found in parsed keys — "
+                "nested key extraction may be broken",
+            )
+
+        # Reference collector must find a meaningful number of refs
+        self.assertGreater(
+            len(referenced),
+            30,
+            f"_collect_referenced_keys returned only {len(referenced)} refs — "
+            "scanner likely broken",
+        )
+
+        # Intersection must be non-trivial
+        matched = all_keys & referenced
+        self.assertGreater(
+            len(matched),
+            20,
+            f"Only {len(matched)} keys matched between parsed and referenced — "
+            "scanner mismatch",
         )
 
 

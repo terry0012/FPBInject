@@ -9,10 +9,6 @@ window.i18nResources['zh-TW'] = {
     sidebar: {
       connection: '連線',
       config: '設定',
-      explorer: '瀏覽器',
-      device: '熱補丁',
-      transfer: '檔案傳輸',
-      symbols: '符號',
       file_transfer: '檔案傳輸',
       quick_commands: '快捷指令',
     },
@@ -65,7 +61,6 @@ window.i18nResources['zh-TW'] = {
       connect: '連線',
       disconnect: '斷開',
       connecting: '連線中...',
-      refresh: '重新整理',
       advanced_settings: '進階設定',
       data_bits: '資料位元',
       parity: '校驗位元',
@@ -86,7 +81,6 @@ window.i18nResources['zh-TW'] = {
     // 按鈕
     buttons: {
       inject: '注入',
-      compile: '編譯',
       browse: '瀏覽',
       save: '儲存',
       cancel: '取消',
@@ -94,25 +88,19 @@ window.i18nResources['zh-TW'] = {
       refresh: '重新整理',
       add: '新增',
       remove: '移除',
-      start: '開始',
-      stop: '停止',
     },
 
     // 標籤頁
     tabs: {
-      patch: '補丁',
       symbols: '符號',
       output: '輸出',
       serial: '串列埠',
-      problems: '問題',
     },
 
     // 面板
     panels: {
       fpb_slots: '熱補丁',
       slot_empty: '空閒',
-      slot_occupied: '已佔用',
-      no_file_open: '未開啟檔案',
       no_symbols: '未載入符號',
       memory_not_available: '記憶體資訊不可用',
       click_refresh: '點擊「重新整理」載入檔案',
@@ -138,13 +126,6 @@ window.i18nResources['zh-TW'] = {
 
     // 訊息
     messages: {
-      config_saved: '設定已儲存',
-      connect_success: '連線成功',
-      connect_failed: '連線失敗',
-      inject_success: '注入成功',
-      inject_failed: '注入失敗',
-      compile_success: '編譯成功',
-      compile_failed: '編譯失敗',
       // 裝置探測訊息
       not_connected: '未連線到裝置',
       ping_success: '裝置已探測到',
@@ -213,7 +194,6 @@ window.i18nResources['zh-TW'] = {
       // 重新注入
       no_inject_cache: '沒有可重新注入的快取',
       confirm_reinject: '確定重新注入 {{count}} 個檔案？',
-      reinject_success: '重新注入完成：{{count}} 個成功',
       reinject_partial: '重新注入：{{success}} 個成功，{{fail}} 個失敗',
     },
 
@@ -277,8 +257,6 @@ window.i18nResources['zh-TW'] = {
       file: '檔案',
       folder: '資料夾',
       download: '下載',
-      upload: '上傳',
-      cancel: '取消',
     },
 
     // 裝置
@@ -424,25 +402,6 @@ window.i18nResources['zh-TW'] = {
       symbols_decompile: '反編譯',
       symbols_decompile_desc: '使用 Ghidra 產生偽 C 程式碼以便更好理解。',
 
-      editor_title: '程式碼編輯器',
-      editor_desc: '編輯器區域用於撰寫和修改補丁程式碼。',
-      editor_tabs: '檔案標籤',
-      editor_tabs_desc: '開啟多個補丁檔案，透過標籤頁在它們之間切換。',
-      editor_edit: '程式碼編輯',
-      editor_edit_desc:
-        '使用語法醒目提示撰寫補丁程式碼。使用 <code>/* FPB_INJECT */</code> 標記來指定可注入的函式。',
-      editor_inject: '儲存和注入',
-      editor_inject_desc:
-        '儲存補丁檔案並點擊注入按鈕將其套用到裝置，或啟用自動注入實現免手動操作。',
-
-      logs_title: '輸出和串列埠',
-      logs_desc: '底部面板顯示系統輸出和串列埠通訊。',
-      logs_output: '輸出',
-      logs_output_desc: '檢視編譯結果、注入日誌和系統訊息。',
-      logs_serial: '串列埠',
-      logs_serial_desc:
-        '互動式串列埠終端，用於與裝置直接通訊。您可以傳送命令並檢視即時回應。',
-
       config_title: '設定',
       config_desc: '設定區域包含所有工作台設定。',
       config_ui: 'UI 設定',
@@ -480,8 +439,6 @@ window.i18nResources['zh-TW'] = {
       gate_config_toolchain: '工具鏈',
       gate_config_watchdirs: '監控目錄',
       gate_config_autoinject: '自動注入',
-      gate_logs: '⏳ 請點擊底部面板的「串列埠」標籤。',
-      gate_logs_ok: '✅ 串列埠終端已啟用！',
 
       // 注入體驗步驟
       demo_search_title: '搜尋目標函式',
