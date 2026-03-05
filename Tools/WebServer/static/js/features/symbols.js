@@ -34,8 +34,7 @@ async function searchSymbols() {
     (query.length >= 4 && /^[0-9a-fA-F]+$/.test(query));
 
   if (query.length < 2) {
-    list.innerHTML =
-      '<div style="padding: 8px; font-size: 11px; opacity: 0.7;">Enter at least 2 characters</div>';
+    list.innerHTML = `<div style="padding: 8px; font-size: 11px; opacity: 0.7;">${t('panels.search_min_chars', 'Enter at least 2 characters')}</div>`;
     return;
   }
 
@@ -61,12 +60,12 @@ async function searchSymbols() {
       list.innerHTML = `<div style="padding: 8px; font-size: 11px; opacity: 0.7; color: #f44336;">${data.error}</div>`;
     } else {
       const hint = isAddrSearch
-        ? 'No symbols found at this address'
-        : 'No symbols found';
+        ? t('panels.no_symbols_at_addr', 'No symbols found at this address')
+        : t('panels.no_symbols_found', 'No symbols found');
       list.innerHTML = `<div style="padding: 8px; font-size: 11px; opacity: 0.7;">${hint}</div>`;
     }
   } catch (e) {
-    list.innerHTML = `<div style="padding: 8px; font-size: 11px; opacity: 0.7; color: #f44336;">Error: ${e.message}</div>`;
+    list.innerHTML = `<div style="padding: 8px; font-size: 11px; opacity: 0.7; color: #f44336;">${t('panels.search_error', 'Error: {{message}}', { message: e.message })}</div>`;
   }
 }
 

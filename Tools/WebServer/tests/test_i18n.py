@@ -787,15 +787,26 @@ class TestHardcodedTextDetection(unittest.TestCase):
 
         # Patterns for hardcoded strings in JS that should be translated
         js_hardcoded_patterns = [
-            # textContent/innerText assignments with English text
-            (r"\.textContent\s*=\s*['\"]([A-Z][a-zA-Z\s\.]+)['\"]", "textContent"),
-            (r"\.innerText\s*=\s*['\"]([A-Z][a-zA-Z\s\.]+)['\"]", "innerText"),
-            # innerHTML with simple text (not HTML)
+            # textContent/innerText assignments with English text (incl. backticks)
+            (
+                r"\.textContent\s*=\s*['\"`]([A-Z][a-zA-Z\s\.!\(\),0-9]+)['\"`]",
+                "textContent",
+            ),
+            (
+                r"\.innerText\s*=\s*['\"`]([A-Z][a-zA-Z\s\.!\(\),0-9]+)['\"`]",
+                "innerText",
+            ),
+            # innerHTML with simple text (not HTML tags)
             (r"\.innerHTML\s*=\s*['\"]([A-Z][a-zA-Z\s]+)['\"]", "innerHTML"),
             # title attribute assignments (tooltips)
             (r"\.title\s*=\s*['\"`]([A-Z][a-zA-Z\s:\.]+)['\"`]", "title"),
             # title="..." in template strings (hardcoded tooltips)
             (r'title="([A-Z][a-zA-Z\s]+)"', "title attr"),
+            # showProgress / showStatus / showError with hardcoded English text
+            (
+                r"(?:showProgress|showStatus|showError|showMessage)\s*\(\s*['\"`]([A-Z][a-zA-Z\s\.!\(\),0-9]+)['\"`]",
+                "func arg",
+            ),
         ]
 
         # Whitelist for JS - technical terms and acceptable hardcoded text

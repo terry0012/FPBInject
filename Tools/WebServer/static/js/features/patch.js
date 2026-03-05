@@ -413,7 +413,15 @@ async function performInject() {
             } else if (data.type === 'progress') {
               const uploadPercent = data.percent || 0;
               const overallPercent = 30 + uploadPercent * 0.6;
-              progressText.textContent = `Uploading... ${data.uploaded}/${data.total} bytes (${uploadPercent}%)`;
+              progressText.textContent = t(
+                'statusbar.uploading',
+                'Uploading... {{uploaded}}/{{total}} bytes ({{percent}}%)',
+                {
+                  uploaded: data.uploaded,
+                  total: data.total,
+                  percent: uploadPercent,
+                },
+              );
               progressFill.style.width = `${overallPercent}%`;
             } else if (data.type === 'result') {
               finalResult = data;
@@ -426,7 +434,7 @@ async function performInject() {
     }
 
     if (finalResult && finalResult.success) {
-      progressText.textContent = 'Complete!';
+      progressText.textContent = t('statusbar.complete', 'Complete!');
       progressFill.style.width = '100%';
 
       displayInjectionStats(finalResult, targetFunc);
@@ -442,7 +450,7 @@ async function performInject() {
       throw new Error(finalResult?.error || 'Injection failed');
     }
   } catch (e) {
-    progressText.textContent = 'Failed!';
+    progressText.textContent = t('statusbar.failed', 'Failed!');
     progressFill.style.background = '#f44336';
     log.error(`${e}`);
     hideProgress();

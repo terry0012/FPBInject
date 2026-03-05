@@ -102,6 +102,10 @@ window.i18nResources['zh-TW'] = {
       fpb_slots: '熱補丁',
       slot_empty: '空閒',
       no_symbols: '未載入符號',
+      search_min_chars: '請輸入至少 2 個字元',
+      no_symbols_found: '未找到符號',
+      no_symbols_at_addr: '未找到該位址的符號',
+      search_error: '錯誤：{{message}}',
       memory_not_available: '記憶體資訊不可用',
       click_refresh: '點擊「重新整理」載入檔案',
       search_placeholder: '按名稱或地址搜尋',
@@ -122,6 +126,12 @@ window.i18nResources['zh-TW'] = {
       watcher_off: '監視器: 關閉',
       watcher_on: '監視器: 開啟',
       slot: '槽位: {{slot}}',
+      uploading: '上傳中... {{uploaded}}/{{total}} 位元組 ({{percent}}%)',
+      complete: '完成！',
+      failed: '失敗！',
+      decompiling_start: '開始反編譯...',
+      analyzing_elf: '分析 ELF（首次）...',
+      decompiling_func: '反編譯函式中...',
     },
 
     // 訊息

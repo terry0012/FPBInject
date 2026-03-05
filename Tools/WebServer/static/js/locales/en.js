@@ -102,6 +102,10 @@ window.i18nResources['en'] = {
       fpb_slots: 'FPB SLOTS',
       slot_empty: 'Empty',
       no_symbols: 'No symbols loaded',
+      search_min_chars: 'Enter at least 2 characters',
+      no_symbols_found: 'No symbols found',
+      no_symbols_at_addr: 'No symbols found at this address',
+      search_error: 'Error: {{message}}',
       memory_not_available: 'Memory info not available',
       click_refresh: "Click 'Refresh' to load files",
       search_placeholder: 'Search by name or address',
@@ -123,6 +127,12 @@ window.i18nResources['en'] = {
       watcher_off: 'Watcher: Off',
       watcher_on: 'Watcher: On',
       slot: 'Slot: {{slot}}',
+      uploading: 'Uploading... {{uploaded}}/{{total}} bytes ({{percent}}%)',
+      complete: 'Complete!',
+      failed: 'Failed!',
+      decompiling_start: 'Starting decompilation...',
+      analyzing_elf: 'Analyzing ELF (first time)...',
+      decompiling_func: 'Decompiling function...',
     },
 
     // Messages

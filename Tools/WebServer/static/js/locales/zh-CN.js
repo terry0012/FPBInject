@@ -102,6 +102,10 @@ window.i18nResources['zh-CN'] = {
       fpb_slots: '热补丁',
       slot_empty: '空闲',
       no_symbols: '未加载符号',
+      search_min_chars: '请输入至少 2 个字符',
+      no_symbols_found: '未找到符号',
+      no_symbols_at_addr: '未找到该地址的符号',
+      search_error: '错误：{{message}}',
       memory_not_available: '内存信息不可用',
       click_refresh: '点击"刷新"加载文件',
       search_placeholder: '按名称或地址搜索',
@@ -122,6 +126,12 @@ window.i18nResources['zh-CN'] = {
       watcher_off: '监视器: 关闭',
       watcher_on: '监视器: 开启',
       slot: '槽位: {{slot}}',
+      uploading: '上传中... {{uploaded}}/{{total}} 字节 ({{percent}}%)',
+      complete: '完成！',
+      failed: '失败！',
+      decompiling_start: '开始反编译...',
+      analyzing_elf: '分析 ELF（首次）...',
+      decompiling_func: '反编译函数中...',
     },
 
     // 消息

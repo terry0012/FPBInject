@@ -303,7 +303,10 @@ async function openManualPatchTab(funcName) {
     /* Use streaming API for progress feedback */
     decompilePromise = (async () => {
       try {
-        showProgress('Starting decompilation...', 10);
+        showProgress(
+          t('statusbar.decompiling_start', 'Starting decompilation...'),
+          10,
+        );
 
         const response = await fetch(
           `/api/symbols/decompile/stream?func=${encodeURIComponent(funcName)}`,
@@ -334,9 +337,21 @@ async function openManualPatchTab(funcName) {
 
                 if (data.type === 'status') {
                   if (data.stage === 'analyzing') {
-                    showProgress('Analyzing ELF (first time)...', 30);
+                    showProgress(
+                      t(
+                        'statusbar.analyzing_elf',
+                        'Analyzing ELF (first time)...',
+                      ),
+                      30,
+                    );
                   } else if (data.stage === 'decompiling') {
-                    showProgress('Decompiling function...', 60);
+                    showProgress(
+                      t(
+                        'statusbar.decompiling_func',
+                        'Decompiling function...',
+                      ),
+                      60,
+                    );
                   }
                 } else if (data.type === 'result') {
                   if (data.success && data.decompiled) {
