@@ -881,7 +881,7 @@ const stepRenderers = {
           <i class="codicon codicon-terminal"></i>
           <div>
             <strong>${t('tutorial.demo_verify_send_cmd', 'Send Command')}</strong>
-            ${t('tutorial.demo_verify_send_cmd_desc', 'The system has auto-entered fl mode. Type <code>--cmd demo</code> in the serial terminal and press Enter.')}
+            ${t('tutorial.demo_verify_send_cmd_desc', 'The system has auto-entered fl mode. Type <code>-c demo</code> in the serial terminal and press Enter.')}
           </div>
         </div>
         <div class="tutorial-feature-item">
@@ -911,7 +911,7 @@ const stepRenderers = {
           <i class="codicon codicon-terminal"></i>
           <div>
             <strong>${t('tutorial.demo_unpatch_verify', 'Verify Restore')}</strong>
-            ${t('tutorial.demo_unpatch_verify_desc', 'Send <code>--cmd demo</code> again in fl mode — the output should revert to the original message.')}
+            ${t('tutorial.demo_unpatch_verify_desc', 'Send <code>-c demo</code> again in fl mode — the output should revert to the original message.')}
           </div>
         </div>
       </div>

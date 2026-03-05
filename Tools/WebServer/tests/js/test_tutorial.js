@@ -646,14 +646,14 @@ module.exports = function (w) {
       assertTrue(body.innerHTML.includes('tutorial-feature-item'));
     });
 
-    it('demo_verify step mentions fl -c demo command', () => {
+    it('demo_verify step mentions -c demo command', () => {
       resetMocks();
       clearTutorialStorage();
       setupTutorialDOM();
       w.startTutorial();
       w.tutorialGoTo(12); // demo_verify
       const body = getElement('tutorialBody');
-      assertTrue(body.innerHTML.includes('fl -c demo'));
+      assertTrue(body.innerHTML.includes('-c demo'));
     });
 
     it('demo_verify step has 2 feature items', () => {
@@ -690,14 +690,14 @@ module.exports = function (w) {
       assertTrue(body.innerHTML.includes('tutorial-feature-item'));
     });
 
-    it('demo_unpatch step mentions fl -c demo command', () => {
+    it('demo_unpatch step mentions -c demo command', () => {
       resetMocks();
       clearTutorialStorage();
       setupTutorialDOM();
       w.startTutorial();
       w.tutorialGoTo(13); // demo_unpatch
       const body = getElement('tutorialBody');
-      assertTrue(body.innerHTML.includes('fl -c demo'));
+      assertTrue(body.innerHTML.includes('-c demo'));
     });
 
     it('demo_unpatch step has 2 feature items', () => {
