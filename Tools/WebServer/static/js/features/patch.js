@@ -129,7 +129,7 @@ ${processedBody}
     functionBody = `/* TODO: Your patch code here */
 ${decompiledSection}`;
   } else {
-    functionBody = `printf("Patched ${funcName} executed!\\n");
+    functionBody = `fl_println("Patched ${funcName} executed!");
 
 /* TODO: Your patch code here */`;
   }

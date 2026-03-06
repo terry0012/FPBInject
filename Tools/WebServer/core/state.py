@@ -201,7 +201,7 @@ class AppState:
  * /* FPB_INJECT */
  * __attribute__((section(".fpb.text"), used))
  * void target_function(int arg1, int arg2) {
- *     printf("Patched: arg1=%d, arg2=%d\\n", arg1, arg2);
+ *     fl_println("Patched: arg1=%d, arg2=%d", arg1, arg2);
  *     // Completely replaces the original function
  * }
  */

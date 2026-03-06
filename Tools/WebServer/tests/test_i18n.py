@@ -387,7 +387,6 @@ class TestTranslationConsistency(unittest.TestCase):
                 else:
                     keys.add(full_key)
                     # Skip past the string value to avoid false matches
-                    val_start = match.end()
                     # Find the quote that started the value
                     quote_idx = (
                         match.start(3)

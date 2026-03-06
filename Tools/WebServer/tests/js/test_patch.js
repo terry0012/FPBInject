@@ -348,7 +348,7 @@ module.exports = function (w) {
       /* The decompiled section should not contain the full function signature */
       assertTrue(!decompiledSection.includes('int test(int'));
     });
-    it('skips printf when decompiled code is provided', () => {
+    it('skips fl_println when decompiled code is provided', () => {
       const template = w.generatePatchTemplate(
         'func',
         0,
@@ -356,13 +356,13 @@ module.exports = function (w) {
         null,
         'void func() { return; }',
       );
-      /* Should not have printf when decompiled code is present */
-      assertTrue(!template.includes('printf'));
+      /* Should not have fl_println when decompiled code is present */
+      assertTrue(!template.includes('fl_println'));
     });
-    it('includes printf when no decompiled code', () => {
+    it('includes fl_println when no decompiled code', () => {
       const template = w.generatePatchTemplate('func', 0);
-      /* Should have printf when no decompiled code */
-      assertContains(template, 'printf');
+      /* Should have fl_println when no decompiled code */
+      assertContains(template, 'fl_println');
     });
     it('uses block comments style consistently', () => {
       const template = w.generatePatchTemplate(
@@ -429,9 +429,9 @@ module.exports = function (w) {
       assertContains(template, '#include <stdint.h>');
       assertContains(template, '#include <stdio.h>');
     });
-    it('includes printf debug message', () => {
+    it('includes fl_println debug message', () => {
       const template = w.generatePatchTemplate('my_func', 0);
-      assertContains(template, 'printf');
+      assertContains(template, 'fl_println');
       assertContains(template, 'Patched');
     });
     it('handles slot number correctly', () => {
