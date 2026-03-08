@@ -353,7 +353,8 @@ function renderTutorialStep() {
     setTimeout(() => {
       highlightElement(`#${step.sidebar}`);
       positionModalNearTarget(`#${step.sidebar}`);
-      updateGateBannerArrow();
+      // Wait for modal transition (350ms) before calculating arrow angle
+      setTimeout(() => updateGateBannerArrow(), 400);
       // Apply per-field visual guides for config gate
       if (step.id === 'config') {
         setTimeout(() => highlightConfigGateFields(), 100);
@@ -363,11 +364,11 @@ function renderTutorialStep() {
     setTimeout(() => {
       highlightNonSidebarElement(step.highlight);
       positionModalNearTarget(step.highlight);
-      updateGateBannerArrow();
+      setTimeout(() => updateGateBannerArrow(), 400);
     }, 300);
   } else {
     positionModalNearTarget(null);
-    setTimeout(() => updateGateBannerArrow(), 50);
+    setTimeout(() => updateGateBannerArrow(), 100);
   }
 
   renderTutorialProgress();
