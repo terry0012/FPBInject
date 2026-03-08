@@ -113,9 +113,16 @@ def run_tests(
         runner = unittest.TextTestRunner(verbosity=verbosity)
         result = runner.run(suite)
 
+        tests_passed = result.wasSuccessful()
+
         if with_coverage:
             cov.stop()
             cov.save()
+
+            # Skip coverage report if tests failed — fail fast
+            if not tests_passed:
+                print("\n❌ Tests failed — skipping coverage report")
+                return False
 
             print("\n" + "=" * 70)
             print("Coverage Report")
@@ -137,7 +144,7 @@ def run_tests(
             else:
                 print(f"\n✅ Coverage {total:.1f}% meets target (≥{coverage_target}%)")
 
-        return result.wasSuccessful()
+        return tests_passed
     finally:
         # Re-enable logging
         logging.disable(logging.NOTSET)

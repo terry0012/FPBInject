@@ -139,6 +139,8 @@ window.i18nResources['zh-CN'] = {
       pointer_value: '指向',
       pointer_raw: '指针',
       deref_pointer: '解引用',
+      reading_symbol: '正在读取 {{name}}...',
+      reading_symbol_size: '正在读取 {{name}} ({{size}} 字节)...',
     },
 
     // Watch 表达式

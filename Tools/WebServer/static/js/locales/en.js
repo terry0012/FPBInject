@@ -139,6 +139,8 @@ window.i18nResources['en'] = {
       pointer_value: 'Points to',
       pointer_raw: 'pointer',
       deref_pointer: 'Dereference',
+      reading_symbol: 'Reading {{name}}...',
+      reading_symbol_size: 'Reading {{name}} ({{size}} bytes)...',
     },
 
     // Watch expressions

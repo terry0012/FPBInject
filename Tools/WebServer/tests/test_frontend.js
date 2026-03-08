@@ -228,6 +228,8 @@ testFiles.forEach((file) => {
         `  ${isCI ? '' : '\x1b[31m'}- ${t.name}: ${t.error}${isCI ? '' : '\x1b[0m'}`,
       );
     });
+    // Fail fast — skip coverage report
+    process.exit(1);
   }
 
   // Generate coverage report

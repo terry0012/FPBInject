@@ -752,12 +752,22 @@ async function readSymbolFromDevice(symName, deref) {
   const progressFill = document.getElementById('injectProgressFill');
   if (progressEl) {
     progressEl.style.display = 'flex';
-    if (progressText)
-      progressText.textContent = t(
-        'symbols.reading_symbol',
-        'Reading {name}...',
-        { name: symName },
-      );
+    if (progressText) {
+      const cached = _symTabDataCache.get(symName);
+      const cachedSize = cached?.data?.size;
+      progressText.textContent = cachedSize
+        ? t(
+            'symbols.reading_symbol_size',
+            `Reading ${symName} (${cachedSize} bytes)...`,
+            {
+              name: symName,
+              size: cachedSize,
+            },
+          )
+        : t('symbols.reading_symbol', `Reading ${symName}...`, {
+            name: symName,
+          });
+    }
     if (progressFill) {
       progressFill.style.width = '100%';
       progressFill.style.background = '';

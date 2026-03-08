@@ -139,6 +139,8 @@ window.i18nResources['zh-TW'] = {
       pointer_value: '指向',
       pointer_raw: '指標',
       deref_pointer: '解參考',
+      reading_symbol: '正在讀取 {{name}}...',
+      reading_symbol_size: '正在讀取 {{name}} ({{size}} 位元組)...',
     },
 
     // Watch 表達式
