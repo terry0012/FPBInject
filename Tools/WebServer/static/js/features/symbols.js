@@ -212,9 +212,6 @@ function _renderSymbolValueContent(data, isConst) {
         </div>
         <span class="sym-viewer-status" id="symStatus_${escapedName}"></span>
       </div>
-      <div class="sym-read-progress" id="symProgress_${escapedName}">
-        <div class="sym-read-progress-fill"></div>
-      </div>
     `;
   }
 
@@ -749,9 +746,31 @@ async function readSymbolFromDevice(symName, deref) {
   const statusEl = document.getElementById(`symStatus_${symName}`);
   if (statusEl) statusEl.textContent = t('symbols.reading', 'Reading...');
 
-  // Show progress bar
-  const progressEl = document.getElementById(`symProgress_${symName}`);
-  if (progressEl) progressEl.classList.add('active');
+  // Reuse global inject progress bar
+  const progressEl = document.getElementById('injectProgress');
+  const progressText = document.getElementById('injectProgressText');
+  const progressFill = document.getElementById('injectProgressFill');
+  if (progressEl) {
+    progressEl.style.display = 'flex';
+    if (progressText)
+      progressText.textContent = t(
+        'symbols.reading_symbol',
+        'Reading {name}...',
+        { name: symName },
+      );
+    if (progressFill) {
+      progressFill.style.width = '100%';
+      progressFill.style.background = '';
+    }
+  }
+
+  const _hideProgress = () => {
+    if (progressEl) progressEl.style.display = 'none';
+    if (progressFill) {
+      progressFill.style.width = '0%';
+      progressFill.style.background = '';
+    }
+  };
 
   try {
     const res = await fetch('/api/symbols/read', {
@@ -765,7 +784,8 @@ async function readSymbolFromDevice(symName, deref) {
       log.error(`Read failed: ${data.error}`);
       if (statusEl)
         statusEl.textContent = `${t('symbols.error', 'Error')}: ${data.error}`;
-      if (progressEl) progressEl.classList.remove('active');
+      if (progressFill) progressFill.style.background = '#f44336';
+      setTimeout(_hideProgress, 2000);
       return;
     }
 
@@ -802,9 +822,11 @@ async function readSymbolFromDevice(symName, deref) {
         `Read ${data.deref_data.size} bytes (deref ${data.deref_data.type_name || ''}) at ${data.deref_data.addr}`,
       );
     }
+    _hideProgress();
   } catch (e) {
     log.error(`Read exception: ${e}`);
-    if (progressEl) progressEl.classList.remove('active');
+    if (progressFill) progressFill.style.background = '#f44336';
+    setTimeout(_hideProgress, 2000);
     if (statusEl)
       statusEl.textContent = `${t('symbols.error', 'Error')}: ${e.message}`;
   }
