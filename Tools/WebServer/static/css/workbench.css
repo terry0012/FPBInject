@@ -72,7 +72,7 @@
   --sash-hover-color: var(--vscode-focus-border);
 
   /* Layout - default values, can be overridden by JS */
-  --sidebar-width: 300px;
+  --sidebar-width: 350px;
   --panel-height: 200px;
 }
 
