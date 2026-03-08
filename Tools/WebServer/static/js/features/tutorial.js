@@ -833,6 +833,7 @@ const stepRenderers = {
   },
 
   hello_verify() {
+    const step = TUTORIAL_STEPS.find((s) => s.id === 'hello_verify');
     return `
       <p>${t('tutorial.hello_verify_desc', 'Send the hello command in the serial terminal to verify the injection effect.')}</p>
       <div class="tutorial-feature-list">
@@ -851,6 +852,7 @@ const stepRenderers = {
           </div>
         </div>
       </div>
+      ${renderGateStatus(step)}
     `;
   },
 
