@@ -60,11 +60,32 @@ def setUpModule():
             )
 
 
+def tearDownModule():
+    """Clean up cached GDB sessions at module end."""
+    global _cached_gdb_session, _cached_cpp_gdb_session
+    for gdb in [_cached_gdb_session, _cached_cpp_gdb_session]:
+        if gdb is not None:
+            try:
+                gdb.stop()
+            except Exception:
+                pass
+    _cached_gdb_session = None
+    _cached_cpp_gdb_session = None
+
+
 # ── Helper: start a GDB session on the fixture ELF ──────────────────
+
+# Module-level cached GDB sessions (shared across test classes for speed)
+_cached_gdb_session = None
+_cached_cpp_gdb_session = None
 
 
 def _make_gdb_session():
-    """Create a GDBSession connected to the test ELF (no RSP)."""
+    """Create or return cached GDBSession connected to the test ELF (no RSP)."""
+    global _cached_gdb_session
+    if _cached_gdb_session is not None and _cached_gdb_session._alive:
+        return _cached_gdb_session
+
     from core.gdb_session import GDBSession
     from pygdbmi.IoManager import IoManager
     from utils.toolchain import get_subprocess_env
@@ -101,6 +122,7 @@ def _make_gdb_session():
         return None
 
     gdb._alive = True
+    _cached_gdb_session = gdb
     return gdb
 
 
@@ -256,14 +278,6 @@ class TestGdbLookupSymbol(unittest.TestCase):
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
 
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
-
     def test_global_function(self):
         info = self.gdb.lookup_symbol("global_func")
         self.assertIsNotNone(info)
@@ -359,14 +373,6 @@ class TestGdbStructLayout(unittest.TestCase):
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
 
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
-
     def test_simple_struct(self):
         layout = self.gdb.get_struct_layout("g_point")
         self.assertIsNotNone(layout)
@@ -432,14 +438,6 @@ class TestGdbReadSymbolValue(unittest.TestCase):
         cls.gdb = _make_gdb_session()
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
-
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
 
     def test_read_initialized_variable(self):
         """Read g_counter which is initialized to 42."""
@@ -527,14 +525,6 @@ class TestNmGdbConsistency(unittest.TestCase):
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
 
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
-
     def _check_type(self, name, expected_type):
         nm_info = self.nm_symbols.get(name)
         self.assertIsNotNone(nm_info, f"'{name}' not in nm symbols")
@@ -581,7 +571,11 @@ class TestNmGdbConsistency(unittest.TestCase):
 
 
 def _make_cpp_gdb_session():
-    """Create a GDBSession connected to the C++ test ELF (no RSP)."""
+    """Create or return cached GDBSession connected to the C++ test ELF (no RSP)."""
+    global _cached_cpp_gdb_session
+    if _cached_cpp_gdb_session is not None and _cached_cpp_gdb_session._alive:
+        return _cached_cpp_gdb_session
+
     from core.gdb_session import GDBSession
     from pygdbmi.IoManager import IoManager
     from utils.toolchain import get_subprocess_env
@@ -618,6 +612,7 @@ def _make_cpp_gdb_session():
         return None
 
     gdb._alive = True
+    _cached_cpp_gdb_session = gdb
     return gdb
 
 
@@ -726,14 +721,6 @@ class TestCppGdbLookupSymbol(unittest.TestCase):
         cls.gdb = _make_cpp_gdb_session()
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
-
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
 
     def test_mangled_namespace_function(self):
         """Lookup mangled namespace function."""
@@ -852,14 +839,6 @@ class TestCppGdbStructLayout(unittest.TestCase):
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
 
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
-
     def test_simple_class_layout(self):
         """Point3D should have x, y, z members."""
         layout = self.gdb.get_struct_layout("g_cpp_point")
@@ -915,14 +894,6 @@ class TestCppNmGdbConsistency(unittest.TestCase):
         cls.gdb = _make_cpp_gdb_session()
         if cls.gdb is None:
             raise unittest.SkipTest("Failed to start GDB session")
-
-    @classmethod
-    def tearDownClass(cls):
-        if cls.gdb:
-            try:
-                cls.gdb.stop()
-            except Exception:
-                pass
 
     def test_function_address_consistency(self):
         """nm and GDB should agree on C++ function addresses."""
