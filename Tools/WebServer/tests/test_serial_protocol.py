@@ -112,9 +112,15 @@ class TestFPBProtocolPlatform(unittest.TestCase):
         self.device.ser.in_waiting = 3
         self.device.ser.read.return_value = b"fl>"
 
+        call_count = 0
+
+        def fake_time():
+            nonlocal call_count
+            call_count += 1
+            return call_count * 0.05
+
         with patch("time.sleep"):
-            with patch("time.time") as mock_time:
-                mock_time.side_effect = [0, 0.1, 0.6]
+            with patch("time.time", side_effect=fake_time):
                 self.protocol.enter_fl_mode(timeout=0.5)
 
         self.assertEqual(self.protocol.get_platform(), Platform.NUTTX)
@@ -124,9 +130,15 @@ class TestFPBProtocolPlatform(unittest.TestCase):
         self.device.ser.in_waiting = 3
         self.device.ser.read.return_value = b"[FLOK] pong"
 
+        call_count = 0
+
+        def fake_time():
+            nonlocal call_count
+            call_count += 1
+            return call_count * 0.05
+
         with patch("time.sleep"):
-            with patch("time.time") as mock_time:
-                mock_time.side_effect = [0, 0.1, 0.6]
+            with patch("time.time", side_effect=fake_time):
                 self.protocol.enter_fl_mode(timeout=0.5)
 
         self.assertEqual(self.protocol.get_platform(), Platform.BARE_METAL)
