@@ -138,6 +138,7 @@ def run_tests(
                 print(
                     f"\n⚠️  Warning: Coverage {total:.1f}% below {coverage_target}% target"
                 )
+                return False
             else:
                 print(f"\n✅ Coverage {total:.1f}% meets target (≥{coverage_target}%)")
 
