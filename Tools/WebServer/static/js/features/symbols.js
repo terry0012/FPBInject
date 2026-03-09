@@ -212,6 +212,9 @@ function _renderSymbolValueContent(data, isConst) {
         <button class="vscode-btn secondary" onclick="writeSymbolToDevice('${escapedName}')">
           <i class="codicon codicon-cloud-upload"></i> ${t('symbols.write_to_device', 'Write to Device')}
         </button>
+        <button class="vscode-btn secondary" onclick="saveSymbolData('${escapedName}')">
+          <i class="codicon codicon-save"></i> ${t('symbols.save_to_file', 'Save')}
+        </button>
         ${derefCheckbox}
         <div class="sym-auto-read">
           <button class="vscode-btn secondary sym-auto-read-toggle" id="symAutoReadBtn_${escapedName}"
@@ -942,6 +945,67 @@ async function writeSymbolToDevice(symName) {
 }
 
 /* ===========================
+   SAVE SYMBOL DATA TO FILE
+   =========================== */
+async function saveSymbolData(symName) {
+  const tabId = `symval_${symName}`;
+  const contentDiv = document.getElementById(`tabContent_${tabId}`);
+  if (!contentDiv) return;
+
+  const hexDump = contentDiv.querySelector('.sym-hex-dump');
+  if (!hexDump) {
+    log.error(t('symbols.no_hex_data', 'No hex data to write'));
+    return;
+  }
+
+  // Parse hex bytes from the dump text
+  const dumpText = hexDump.textContent;
+  const hexBytes = dumpText
+    .replace(/^0x[0-9a-f]+:\s*/gm, '')
+    .replace(/\s{2,}.*$/gm, '')
+    .replace(/\s+/g, '')
+    .trim();
+
+  if (!hexBytes || !/^[0-9a-fA-F]+$/.test(hexBytes)) {
+    log.error(t('symbols.invalid_hex', 'Invalid hex data'));
+    return;
+  }
+
+  const fileName = `${symName}.bin`;
+  const state = window.FPBState;
+
+  state.fileBrowserCallback = async (selectedPath) => {
+    if (!selectedPath) return;
+
+    const fullPath = selectedPath.endsWith('/')
+      ? selectedPath + fileName
+      : selectedPath + '/' + fileName;
+
+    try {
+      const res = await fetch('/api/file/write/binary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fullPath, hex_data: hexBytes }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        log.success(
+          `Saved ${data.size} bytes to: ${fullPath}`,
+        );
+      } else {
+        log.error(`Failed to save: ${data.error}`);
+      }
+    } catch (e) {
+      log.error(`Failed to save file: ${e}`);
+    }
+  };
+  state.fileBrowserFilter = '';
+  state.fileBrowserMode = 'dir';
+  openFileBrowser(HOME_PATH);
+}
+
+/* ===========================
    AUTO-READ TIMER
    =========================== */
 function toggleAutoRead(symName) {
@@ -1133,6 +1197,7 @@ window.onSymbolDblClick = onSymbolDblClick;
 window.openSymbolValueTab = openSymbolValueTab;
 window.readSymbolFromDevice = readSymbolFromDevice;
 window.writeSymbolToDevice = writeSymbolToDevice;
+window.saveSymbolData = saveSymbolData;
 window.writeSymbolField = writeSymbolField;
 window.readMemoryAddress = readMemoryAddress;
 window.toggleAutoRead = toggleAutoRead;
