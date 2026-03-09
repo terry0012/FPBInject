@@ -426,7 +426,7 @@ window.i18nResources['zh-TW'] = {
       connection_port_desc:
         '從下拉選單選擇裝置連接埠。點擊重新整理按鈕掃描新連接埠。',
       connection_baudrate: '鮑率',
-      connection_baudrate_desc: '設定通訊速度（預設：115200）。',
+      connection_baudrate_desc: '設定通訊速度。',
       connection_connect: '連線按鈕',
       connection_connect_desc: '點擊以建立與裝置的連線。',
 

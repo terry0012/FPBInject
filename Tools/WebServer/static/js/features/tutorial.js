@@ -634,7 +634,7 @@ const stepRenderers = {
           <i class="codicon codicon-dashboard"></i>
           <div>
             <strong>${t('tutorial.connection_baudrate', 'Baud Rate')}</strong>
-            ${t('tutorial.connection_baudrate_desc', 'Set the communication speed (default: 115200).')}
+            ${t('tutorial.connection_baudrate_desc', 'Set the communication speed.')}
           </div>
         </div>
         <div class="tutorial-feature-item">

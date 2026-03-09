@@ -443,8 +443,7 @@ window.i18nResources['en'] = {
       connection_port_desc:
         'Select your device port from the dropdown. Click refresh to scan for new ports.',
       connection_baudrate: 'Baud Rate',
-      connection_baudrate_desc:
-        'Set the communication speed (default: 115200).',
+      connection_baudrate_desc: 'Set the communication speed.',
       connection_connect: 'Connect Button',
       connection_connect_desc:
         'Click to establish connection with your device.',

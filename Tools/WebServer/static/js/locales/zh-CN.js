@@ -425,7 +425,7 @@ window.i18nResources['zh-CN'] = {
       connection_port: '串口端口',
       connection_port_desc: '从下拉菜单选择设备端口。点击刷新按钮扫描新端口。',
       connection_baudrate: '波特率',
-      connection_baudrate_desc: '设置通信速度（默认：115200）。',
+      connection_baudrate_desc: '设置通信速度。',
       connection_connect: '连接按钮',
       connection_connect_desc: '点击以建立与设备的连接。',
 
