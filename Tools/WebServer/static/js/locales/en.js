@@ -141,6 +141,7 @@ window.i18nResources['en'] = {
       deref_pointer: 'Dereference',
       reading_symbol: 'Reading {{name}}...',
       reading_symbol_size: 'Reading {{name}} ({{size}} bytes)...',
+      reading_progress: 'Reading {{name}} {{percent}}%',
       loading_symbol: 'Loading {{name}}...',
       save_to_file: 'Save',
       saved_to_file: 'Saved {{size}} bytes to: {{path}}',

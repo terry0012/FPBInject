@@ -141,6 +141,7 @@ window.i18nResources['zh-TW'] = {
       deref_pointer: '解參考',
       reading_symbol: '正在讀取 {{name}}...',
       reading_symbol_size: '正在讀取 {{name}} ({{size}} 位元組)...',
+      reading_progress: '正在讀取 {{name}} {{percent}}%',
       loading_symbol: '正在載入 {{name}}...',
       save_to_file: '儲存',
       saved_to_file: '已儲存 {{size}} 位元組到: {{path}}',

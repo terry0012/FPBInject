@@ -141,6 +141,7 @@ window.i18nResources['zh-CN'] = {
       deref_pointer: '解引用',
       reading_symbol: '正在读取 {{name}}...',
       reading_symbol_size: '正在读取 {{name}} ({{size}} 字节)...',
+      reading_progress: '正在读取 {{name}} {{percent}}%',
       loading_symbol: '正在加载 {{name}}...',
       save_to_file: '保存',
       saved_to_file: '已保存 {{size}} 字节到: {{path}}',
