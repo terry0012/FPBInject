@@ -114,6 +114,7 @@ function handleConnected(port, message = null) {
   startLogStreaming();
   fpbInfo();
   updateDisabledState();
+  updateGdbServerStatus();
 
   // Start ELF file watcher
   if (typeof startElfWatcherPolling === 'function') {
@@ -134,6 +135,7 @@ function handleDisconnected() {
   stopLogStreaming();
   stopLogPolling();
   updateDisabledState();
+  hideGdbServerStatus();
 
   // Stop ELF file watcher
   if (typeof stopElfWatcherPolling === 'function') {
@@ -333,6 +335,40 @@ function resetBackendAlertState() {
   backendDisconnectAlertShown = false;
 }
 
+/**
+ * Update GDB server status in the status bar.
+ * Fetches /api/status to get the external GDB port.
+ */
+async function updateGdbServerStatus() {
+  try {
+    const res = await fetch('/api/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    const port = data.external_gdb_port;
+    const el = document.getElementById('gdbServerStatus');
+    const portEl = document.getElementById('gdbServerPort');
+    if (el && portEl && port) {
+      portEl.textContent = t('statusbar.gdb_server', `GDB :${port}`, {
+        port,
+      });
+      el.style.display = '';
+      el.title = `target remote :${port}`;
+    } else if (el) {
+      el.style.display = 'none';
+    }
+  } catch (e) {
+    // Ignore - status bar is non-critical
+  }
+}
+
+/**
+ * Hide GDB server status in the status bar.
+ */
+function hideGdbServerStatus() {
+  const el = document.getElementById('gdbServerStatus');
+  if (el) el.style.display = 'none';
+}
+
 // Export for global access
 window.refreshPorts = refreshPorts;
 window.handleConnected = handleConnected;
@@ -346,6 +382,8 @@ window.stopBackendHealthCheck = stopBackendHealthCheck;
 window.resetBackendAlertState = resetBackendAlertState;
 window.onBaudrateSelectChange = onBaudrateSelectChange;
 window.getBaudrate = getBaudrate;
+window.updateGdbServerStatus = updateGdbServerStatus;
+window.hideGdbServerStatus = hideGdbServerStatus;
 
 // Fix connect button text after translatePage() overwrites it
 document.addEventListener('i18n:translated', () => {

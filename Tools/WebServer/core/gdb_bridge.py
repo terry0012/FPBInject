@@ -25,6 +25,16 @@ logger = logging.getLogger(__name__)
 ARM_NUM_REGS = 17
 ARM_REG_SIZE = 4  # bytes
 
+# Default ARM Cortex-M memory regions (conservative whitelist)
+# These cover the standard memory map; specific chips may differ.
+DEFAULT_MEMORY_REGIONS = [
+    (0x00000000, 0x20000000),  # Flash / Code (up to 512MB)
+    (0x20000000, 0x40000000),  # SRAM (up to 512MB)
+    (0x40000000, 0x60000000),  # Peripherals
+    (0x60000000, 0xA0000000),  # External RAM / Device
+    (0xE0000000, 0xF0000000),  # System / PPB (SCS, NVIC, etc.)
+]
+
 
 def _checksum(data: str) -> int:
     """Calculate GDB RSP checksum (sum of bytes mod 256)."""
@@ -80,6 +90,30 @@ class GDBRSPBridge:
         self._running = False
         self._client: Optional[socket.socket] = None
         self._actual_port: Optional[int] = None
+        self._memory_regions = list(DEFAULT_MEMORY_REGIONS)
+
+    def set_memory_regions(self, regions):
+        """Set allowed memory regions for address validation.
+
+        Args:
+            regions: List of (start, end) tuples. Reads/writes outside
+                     these ranges are rejected with E14 (EFAULT) without
+                     touching the device, preventing crash from invalid access.
+        """
+        self._memory_regions = list(regions)
+        logger.info(f"RSP memory regions updated: {len(regions)} regions")
+        for start, end in regions:
+            logger.info(f"  0x{start:08X} - 0x{end:08X} ({(end - start) // 1024}KB)")
+
+    def _is_address_valid(self, addr: int, length: int) -> bool:
+        """Check if the entire [addr, addr+length) range falls within allowed regions."""
+        if not self._memory_regions:
+            return True  # No regions configured = allow all
+        end = addr + length
+        for region_start, region_end in self._memory_regions:
+            if addr >= region_start and end <= region_end:
+                return True
+        return False
 
     @property
     def port(self) -> int:
@@ -328,6 +362,13 @@ class GDBRSPBridge:
         if length > 4096:
             length = 4096
 
+        # Address validation - reject out-of-range reads before touching device
+        if not self._is_address_valid(addr, length):
+            logger.debug(
+                f"RSP read 0x{addr:08X}+{length} BLOCKED: outside valid memory regions"
+            )
+            return "E14"  # EFAULT
+
         try:
             data, msg = self._read_memory(addr, length)
             if data is not None:
@@ -352,6 +393,13 @@ class GDBRSPBridge:
 
         if len(write_data) != length:
             return "E01"
+
+        # Address validation - reject out-of-range writes before touching device
+        if not self._is_address_valid(addr, length):
+            logger.debug(
+                f"RSP write 0x{addr:08X}+{length} BLOCKED: outside valid memory regions"
+            )
+            return "E14"  # EFAULT
 
         try:
             ok, msg = self._write_memory(addr, write_data)

@@ -157,13 +157,25 @@ function renderNumberInput(item, elementId, tooltip) {
   const label = getConfigLabel(item);
   const i18nLabel = `data-i18n="config.labels.${item.key}"`;
 
+  // Special: add copy GDB command button for external_gdb_port
+  const copyBtnTitle =
+    typeof t === 'function' && isI18nReady()
+      ? t('config.copy_gdb_command')
+      : 'Copy GDB command';
+  const copyBtn =
+    item.key === 'external_gdb_port'
+      ? `<button class="vscode-btn icon-only secondary" onclick="copyGdbCommand()" title="${copyBtnTitle}" data-i18n="[title]config.copy_gdb_command">
+         <i class="codicon codicon-copy"></i>
+       </button>`
+      : '';
+
   return `
     <div class="config-item config-item-number"${tooltip}>
       <label for="${elementId}" ${i18nLabel}>${label}</label>
       <input type="number" id="${elementId}" class="vscode-input"
              value="${item.default}"${min}${max}${step}
              onchange="onConfigItemChange('${item.key}')" />
-      ${unit}
+      ${unit}${copyBtn}
     </div>
   `;
 }
@@ -628,6 +640,41 @@ window.browsePathListItem = browsePathListItem;
 window.removePathListItem = removePathListItem;
 window.keyToElementId = keyToElementId;
 window.getConfigLabel = getConfigLabel;
+window.copyGdbCommand = copyGdbCommand;
+
+/**
+ * Copy GDB connection command to clipboard.
+ * Composes: gdb-multiarch <elf_path> -ex "target remote :<port>"
+ */
+function copyGdbCommand() {
+  const portEl = document.getElementById(keyToElementId('external_gdb_port'));
+  const elfEl = document.getElementById(keyToElementId('elf_path'));
+  const port = portEl ? portEl.value || '3333' : '3333';
+  const elfPath = elfEl
+    ? elfEl.value || '/path/to/firmware.elf'
+    : '/path/to/firmware.elf';
+  const cmd = `gdb-multiarch ${elfPath} -ex "target remote :${port}"`;
+
+  navigator.clipboard
+    .writeText(cmd)
+    .then(() => {
+      if (typeof showToast === 'function') {
+        showToast(cmd, 'success');
+      }
+    })
+    .catch(() => {
+      // Fallback: select a temporary input
+      const tmp = document.createElement('input');
+      tmp.value = cmd;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+      if (typeof showToast === 'function') {
+        showToast(cmd, 'success');
+      }
+    });
+}
 
 /**
  * Translate config schema labels and tooltips.

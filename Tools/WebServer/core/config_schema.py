@@ -329,6 +329,18 @@ CONFIG_SCHEMA: List[ConfigItem] = [
     ),
     # === Analysis Tools ===
     ConfigItem(
+        key="external_gdb_port",
+        label="External GDB Port",
+        group=ConfigGroup.TOOLS,
+        config_type=ConfigType.NUMBER,
+        default=3333,
+        tooltip="TCP port for external GDB client connections (0 = disabled)",
+        min_value=0,
+        max_value=65535,
+        step=1,
+        order=5,
+    ),
+    ConfigItem(
         key="ghidra_path",
         label="Ghidra Path",
         group=ConfigGroup.TOOLS,

@@ -41,11 +41,13 @@ window.i18nResources['zh-CN'] = {
         log_file_path: '日志路径',
         log_file_enabled: '记录串口日志',
         serial_echo_enabled: '串口发送回显',
+        external_gdb_port: '外部 GDB 端口',
         ghidra_path: 'Ghidra 路径',
         enable_decompile: '启用反编译',
         ui_theme: '主题',
         ui_language: '语言',
       },
+      copy_gdb_command: '复制 GDB 命令',
       // 配置选项值
       options: {
         dark: '深色',
@@ -185,6 +187,8 @@ window.i18nResources['zh-CN'] = {
       decompiling_start: '开始反编译...',
       analyzing_elf: '分析 ELF（首次）...',
       decompiling_func: '反编译函数中...',
+      gdb_server: 'GDB :{{port}}',
+      gdb_server_title: '外部 GDB RSP 服务器',
     },
 
     // 消息

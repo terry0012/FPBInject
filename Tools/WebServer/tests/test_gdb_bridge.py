@@ -265,5 +265,102 @@ class TestGDBRSPBridgeMemoryPackets(unittest.TestCase):
         self.assertEqual(resp, "")
 
 
+class TestGDBRSPBridgeMemoryRegions(unittest.TestCase):
+    """Test memory region address validation."""
+
+    def setUp(self):
+        self.read_fn = MagicMock(return_value=(b"\x01\x02\x03\x04", "OK"))
+        self.write_fn = MagicMock(return_value=(True, "OK"))
+        self.bridge = GDBRSPBridge(
+            read_memory_fn=self.read_fn,
+            write_memory_fn=self.write_fn,
+            listen_port=0,
+        )
+
+    def test_default_regions_allow_flash(self):
+        """Flash region (0x00000000-0x20000000) should be allowed by default."""
+        self.assertTrue(self.bridge._is_address_valid(0x08000000, 4))
+
+    def test_default_regions_allow_sram(self):
+        """SRAM region (0x20000000-0x40000000) should be allowed by default."""
+        self.assertTrue(self.bridge._is_address_valid(0x20000000, 256))
+
+    def test_default_regions_allow_peripherals(self):
+        """Peripheral region (0x40000000-0x60000000) should be allowed by default."""
+        self.assertTrue(self.bridge._is_address_valid(0x40000000, 4))
+
+    def test_default_regions_allow_system(self):
+        """System region (0xE0000000-0xF0000000) should be allowed by default."""
+        self.assertTrue(self.bridge._is_address_valid(0xE000ED00, 4))
+
+    def test_default_regions_block_invalid(self):
+        """Address 0xF0000000+ should be blocked by default."""
+        self.assertFalse(self.bridge._is_address_valid(0xFFFFFFFC, 4))
+
+    def test_default_regions_block_gap(self):
+        """Address in gap (0xA0000000-0xE0000000) should be blocked."""
+        self.assertFalse(self.bridge._is_address_valid(0xC0000000, 4))
+
+    def test_cross_boundary_blocked(self):
+        """Read that crosses region boundary should be blocked."""
+        # Ends at 0x20000004, which is in SRAM, but starts in Flash boundary
+        # Actually 0x1FFFFFFC + 8 = 0x20000004, crosses Flash->SRAM
+        self.assertFalse(self.bridge._is_address_valid(0x1FFFFFFC, 8))
+
+    def test_handle_read_blocked(self):
+        """Read to invalid address should return E14 without calling read_fn."""
+        resp = self.bridge._handle_read("FFFFFFFC,4")
+        self.assertEqual(resp, "E14")
+        self.read_fn.assert_not_called()
+
+    def test_handle_read_allowed(self):
+        """Read to valid address should proceed normally."""
+        resp = self.bridge._handle_read("20001000,4")
+        self.assertEqual(resp, "01020304")
+        self.read_fn.assert_called_once()
+
+    def test_handle_write_blocked(self):
+        """Write to invalid address should return E14 without calling write_fn."""
+        resp = self.bridge._handle_write("FFFFFFFC,2:abcd")
+        self.assertEqual(resp, "E14")
+        self.write_fn.assert_not_called()
+
+    def test_handle_write_allowed(self):
+        """Write to valid address should proceed normally."""
+        resp = self.bridge._handle_write("20001000,2:abcd")
+        self.assertEqual(resp, "OK")
+        self.write_fn.assert_called_once()
+
+    def test_set_memory_regions_custom(self):
+        """Custom regions should replace defaults."""
+        self.bridge.set_memory_regions(
+            [
+                (0x20000000, 0x20010000),  # 64KB SRAM only
+            ]
+        )
+        self.assertTrue(self.bridge._is_address_valid(0x20000000, 4))
+        self.assertFalse(
+            self.bridge._is_address_valid(0x08000000, 4)
+        )  # Flash now blocked
+        self.assertFalse(self.bridge._is_address_valid(0x20010000, 4))  # Past end
+
+    def test_empty_regions_allow_all(self):
+        """Empty region list should allow all addresses (no filtering)."""
+        self.bridge.set_memory_regions([])
+        self.assertTrue(self.bridge._is_address_valid(0xFFFFFFFC, 4))
+
+    def test_m_packet_blocked_address(self):
+        """Full packet path: m packet to invalid address returns E14."""
+        resp = self.bridge._handle_packet("mFFFFFFFC,4")
+        self.assertEqual(resp, "E14")
+        self.read_fn.assert_not_called()
+
+    def test_M_packet_blocked_address(self):
+        """Full packet path: M packet to invalid address returns E14."""
+        resp = self.bridge._handle_packet("MFFFFFFFC,2:abcd")
+        self.assertEqual(resp, "E14")
+        self.write_fn.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -41,11 +41,13 @@ window.i18nResources['en'] = {
         log_file_path: 'Log Path',
         log_file_enabled: 'Record Serial Logs',
         serial_echo_enabled: 'Serial TX Echo',
+        external_gdb_port: 'External GDB Port',
         ghidra_path: 'Ghidra Path',
         enable_decompile: 'Enable Decompilation',
         ui_theme: 'Theme',
         ui_language: 'Language',
       },
+      copy_gdb_command: 'Copy GDB command',
       // Config option values
       options: {
         dark: 'Dark',
@@ -186,6 +188,8 @@ window.i18nResources['en'] = {
       decompiling_start: 'Starting decompilation...',
       analyzing_elf: 'Analyzing ELF (first time)...',
       decompiling_func: 'Decompiling function...',
+      gdb_server: 'GDB :{{port}}',
+      gdb_server_title: 'External GDB RSP Server',
     },
 
     // Messages

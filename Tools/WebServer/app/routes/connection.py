@@ -182,6 +182,11 @@ def api_status():
     except Exception:
         pass
 
+    # Get external GDB server port
+    from core.gdb_manager import get_external_gdb_port
+
+    external_gdb_port = get_external_gdb_port(state)
+
     return jsonify(
         {
             "success": True,
@@ -203,6 +208,7 @@ def api_status():
             "last_inject_func": device.last_inject_func,
             "last_inject_time": device.last_inject_time,
             "device_info": device.device_info,
+            "external_gdb_port": external_gdb_port,
         }
     )
 

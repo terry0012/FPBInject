@@ -205,6 +205,7 @@ class AppState:
         # GDB integration (RSP bridge + session)
         self.gdb_bridge = None  # core.gdb_bridge.GDBRSPBridge
         self.gdb_session = None  # core.gdb_session.GDBSession
+        self.external_gdb_bridge = None  # External GDB RSP bridge for CLI/IDE
 
         # Patch generation state
         self.generated_patch = None
