@@ -98,7 +98,7 @@ def start_gdb(state, read_memory_fn=None, write_memory_fn=None) -> bool:
 
         # Attach log handler to forward GDB session logs to frontend OUTPUT
         global _gdb_tool_log_handler
-        _gdb_tool_log_handler = ToolLogHandler(device, prefix="GDB", level=logging.INFO)
+        _gdb_tool_log_handler = ToolLogHandler(device, level=logging.INFO)
         logging.getLogger("core.gdb_session").addHandler(_gdb_tool_log_handler)
 
         elapsed = time.time() - t_start
