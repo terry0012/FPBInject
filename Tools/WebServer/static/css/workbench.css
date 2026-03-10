@@ -71,9 +71,9 @@
   --sash-size: 4px;
   --sash-hover-color: var(--vscode-focus-border);
 
-  /* Layout - default values, can be overridden by JS */
-  --sidebar-width: 350px;
-  --panel-height: 200px;
+  /* Layout - default proportions, can be overridden by JS */
+  --sidebar-width: 25vw;
+  --panel-height: 25vh;
 }
 
 /* Light Theme */
@@ -341,7 +341,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 1px solid var(--vscode-border);
-  min-width: 180px;
+  min-width: 280px;
 }
 
 /* Scrollbar styling - VS Code style */

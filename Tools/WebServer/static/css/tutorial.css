@@ -19,7 +19,8 @@
 }
 
 .tutorial-modal {
-  width: 560px;
+  width: calc(var(--sidebar-width) - 10px);
+  min-width: 280px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;

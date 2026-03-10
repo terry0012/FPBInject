@@ -77,7 +77,7 @@ function initSashResize() {
     if (isResizingSidebar) {
       const delta = e.clientX - startX;
       const newWidth = startWidth + delta;
-      if (newWidth >= 150) {
+      if (newWidth >= 280) {
         document.documentElement.style.setProperty(
           '--sidebar-width',
           newWidth + 'px',
@@ -102,7 +102,7 @@ function initSashResize() {
       const newWidth = startWidth + deltaX;
       const newHeight = startHeight + deltaY;
 
-      if (newWidth >= 150) {
+      if (newWidth >= 280) {
         document.documentElement.style.setProperty(
           '--sidebar-width',
           newWidth + 'px',
