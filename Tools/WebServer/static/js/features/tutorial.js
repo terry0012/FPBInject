@@ -66,7 +66,7 @@ const TUTORIAL_STEPS = [
   {
     id: 'hello_inject',
     sidebar: null,
-    highlight: '#editorContainer',
+    highlight: '#injectBtn',
     gate: () => {
       const slotStates = window.FPBState?.slotStates || [];
       return slotStates.some((s) => s && s.occupied);
@@ -861,7 +861,7 @@ const stepRenderers = {
   hello_inject() {
     const step = TUTORIAL_STEPS.find((s) => s.id === 'hello_inject');
     return `
-      <p>${t('tutorial.hello_inject_desc', 'The generated patch template can be injected directly. Select a slot and click inject.')}</p>
+      <p>${t('tutorial.hello_inject_desc', 'Edit the patch code, then click the flashing Inject button.')}</p>
       <div class="tutorial-feature-list">
         <div class="tutorial-feature-item">
           <i class="codicon codicon-edit"></i>
@@ -871,17 +871,10 @@ const stepRenderers = {
           </div>
         </div>
         <div class="tutorial-feature-item">
-          <i class="codicon codicon-layers"></i>
-          <div>
-            <strong>${t('tutorial.hello_inject_slot', 'Select Slot')}</strong>
-            ${t('tutorial.hello_inject_slot_desc', 'Make sure an available FPB slot is selected in the toolbar.')}
-          </div>
-        </div>
-        <div class="tutorial-feature-item">
           <i class="codicon codicon-play"></i>
           <div>
             <strong>${t('tutorial.hello_inject_run', 'Click Inject')}</strong>
-            ${t('tutorial.hello_inject_run_desc', 'Click the inject button in the toolbar and wait for completion.')}
+            ${t('tutorial.hello_inject_run_desc', 'Click the flashing inject button in the toolbar and wait for completion.')}
           </div>
         </div>
       </div>

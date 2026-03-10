@@ -621,7 +621,7 @@ module.exports = function (w) {
       assertTrue(body.innerHTML.includes('Inject'));
     });
 
-    it('hello_inject step has 3 feature items', () => {
+    it('hello_inject step has 2 feature items', () => {
       resetMocks();
       clearTutorialStorage();
       setupTutorialDOM();
@@ -630,7 +630,7 @@ module.exports = function (w) {
       const body = getElement('tutorialBody');
       const count = (body.innerHTML.match(/tutorial-feature-item/g) || [])
         .length;
-      assertEqual(count, 3);
+      assertEqual(count, 2);
     });
   });
 

@@ -545,11 +545,9 @@ window.i18nResources['zh-CN'] = {
       hello_inject_desc: '修改代码后点击注入。',
       hello_inject_edit: '修改代码',
       hello_inject_edit_desc: '修改 <code>fl_println</code> 中的字符串',
-      hello_inject_slot: '选择 Slot',
-      hello_inject_slot_desc: '工具栏选择可用槽位',
       hello_inject_run: '点击「注入」',
       hello_inject_run_desc: '工具栏 → 注入按钮',
-      gate_hello_inject: '选择槽位 → 点击「注入」',
+      gate_hello_inject: '点击闪烁的「注入」按钮',
       gate_hello_inject_ok: '✅ 注入成功！',
 
       gate_hello_verify: '切换到「串口」终端标签页',

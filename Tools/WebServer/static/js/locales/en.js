@@ -586,11 +586,9 @@ window.i18nResources['en'] = {
       hello_inject_desc: 'Modify the code and click inject.',
       hello_inject_edit: 'Edit Code',
       hello_inject_edit_desc: 'Change the <code>fl_println</code> string',
-      hello_inject_slot: 'Select Slot',
-      hello_inject_slot_desc: 'Select an available slot in toolbar',
       hello_inject_run: 'Click Inject',
       hello_inject_run_desc: 'Toolbar → Inject button',
-      gate_hello_inject: 'Select slot → click Inject',
+      gate_hello_inject: 'Click the flashing Inject button',
       gate_hello_inject_ok: '✅ Injection successful!',
 
       gate_hello_verify: 'Switch to Serial terminal tab',
