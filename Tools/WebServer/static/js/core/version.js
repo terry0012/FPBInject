@@ -6,8 +6,8 @@
 const FPBINJECT_VERSION = {
   major: 1,
   minor: 5,
-  patch: 2,
-  string: 'v1.5.2',
+  patch: 3,
+  string: 'v1.5.3',
 };
 
 window.FPBINJECT_VERSION = FPBINJECT_VERSION;
