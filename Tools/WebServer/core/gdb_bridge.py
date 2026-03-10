@@ -36,8 +36,9 @@ DEFAULT_MEMORY_REGIONS = [
 ]
 
 
-# Read-ahead cache line size (bytes, must be power of 2)
-READ_CACHE_LINE_SIZE = 256
+# Default read-ahead cache line size (bytes, must be power of 2).
+# Should match the serial chunk_size so one cache fill = one serial read.
+DEFAULT_CACHE_LINE_SIZE = 128
 
 
 def _checksum(data: str) -> int:
@@ -85,10 +86,12 @@ class GDBRSPBridge:
         read_memory_fn: Callable[[int, int], Tuple[Optional[bytes], str]],
         write_memory_fn: Callable[[int, bytes], Tuple[bool, str]],
         listen_port: int = 3333,
+        cache_line_size: int = DEFAULT_CACHE_LINE_SIZE,
     ):
         self._read_memory = read_memory_fn
         self._write_memory = write_memory_fn
         self._port = listen_port
+        self._cache_line_size = cache_line_size
         self._server: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
         self._running = False
@@ -397,7 +400,7 @@ class GDBRSPBridge:
         Any miss (out of range) discards the cache line and fetches a new one.
         Reads larger than the cache line bypass it entirely.
         """
-        line_size = READ_CACHE_LINE_SIZE
+        line_size = self._cache_line_size
 
         # Large reads bypass cache
         if length > line_size:

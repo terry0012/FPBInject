@@ -163,11 +163,11 @@ class TestGDBRSPBridge(unittest.TestCase):
         self.assertEqual(resp, "OK")
 
     def test_handle_read_success(self):
-        self.read_fn.return_value = (b"\xab\xcd\xef\x01" + b"\x00" * 252, "OK")
+        self.read_fn.return_value = (b"\xab\xcd\xef\x01" + b"\x00" * 124, "OK")
         resp = self.bridge._handle_read("20001000,4")
         self.assertEqual(resp, "abcdef01")
-        # Cache prefetches a full 256-byte line at aligned address
-        self.read_fn.assert_called_once_with(0x20001000, 256)
+        # Cache prefetches a full 128-byte line at aligned address
+        self.read_fn.assert_called_once_with(0x20001000, 128)
 
     def test_handle_read_failure(self):
         self.read_fn.return_value = (None, "timeout")
@@ -367,7 +367,7 @@ class TestGDBRSPBridgeReadCache(unittest.TestCase):
     """Test single-shot read cache line behavior."""
 
     def setUp(self):
-        self.read_fn = MagicMock(return_value=(bytes(range(256)), "ok"))
+        self.read_fn = MagicMock(return_value=(bytes(range(128)), "ok"))
         self.write_fn = MagicMock(return_value=(True, "ok"))
         self.bridge = GDBRSPBridge(
             read_memory_fn=self.read_fn,
@@ -392,7 +392,7 @@ class TestGDBRSPBridgeReadCache(unittest.TestCase):
     def test_cache_miss_different_line(self):
         """Read in a different cache line should fetch from device."""
         self.bridge._handle_read("20000000,4")
-        self.bridge._handle_read("20000100,4")  # next 256B line
+        self.bridge._handle_read("20000080,4")  # next 128B line
         self.assertEqual(self.read_fn.call_count, 2)
 
     def test_large_read_bypasses_cache(self):
