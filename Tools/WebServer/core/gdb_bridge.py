@@ -36,6 +36,10 @@ DEFAULT_MEMORY_REGIONS = [
 ]
 
 
+# Read-ahead cache line size (bytes, must be power of 2)
+READ_CACHE_LINE_SIZE = 256
+
+
 def _checksum(data: str) -> int:
     """Calculate GDB RSP checksum (sum of bytes mod 256)."""
     return sum(ord(c) for c in data) & 0xFF
@@ -91,6 +95,8 @@ class GDBRSPBridge:
         self._client: Optional[socket.socket] = None
         self._actual_port: Optional[int] = None
         self._memory_regions = list(DEFAULT_MEMORY_REGIONS)
+        # Single-shot read cache line: (base_addr, data) or None
+        self._cache_line: Optional[Tuple[int, bytes]] = None
 
     def set_memory_regions(self, regions):
         """Set allowed memory regions for address validation.
@@ -320,6 +326,9 @@ class GDBRSPBridge:
         if cmd == "M":
             return self._handle_write(data[1:])
 
+        # Any other packet invalidates the read cache
+        self._cache_line = None
+
         # Binary memory write: X addr,length:data
         if cmd == "X":
             # We don't support binary protocol, return error
@@ -370,15 +379,57 @@ class GDBRSPBridge:
             return "E14"  # EFAULT
 
         try:
-            data, msg = self._read_memory(addr, length)
+            data = self._cached_read(addr, length)
             if data is not None:
                 return data.hex()
             else:
-                logger.debug(f"RSP read 0x{addr:08X}+{length} failed: {msg}")
+                logger.debug(f"RSP read 0x{addr:08X}+{length} failed")
                 return "E01"
         except Exception as e:
             logger.error(f"RSP read error: {e}")
             return "E01"
+
+    def _cached_read(self, addr: int, length: int) -> Optional[bytes]:
+        """Read with single-shot cache line.
+
+        On a small read, prefetch a full cache line from the device.
+        Subsequent reads within the same line are served from cache.
+        Any miss (out of range) discards the cache line and fetches a new one.
+        Reads larger than the cache line bypass it entirely.
+        """
+        line_size = READ_CACHE_LINE_SIZE
+
+        # Large reads bypass cache
+        if length > line_size:
+            self._cache_line = None
+            data, _ = self._read_memory(addr, length)
+            return data
+
+        # Try to serve from current cache line
+        if self._cache_line is not None:
+            base, cached_data = self._cache_line
+            if base <= addr and addr + length <= base + len(cached_data):
+                offset = addr - base
+                return cached_data[offset : offset + length]
+
+        # Cache miss - discard old line, fetch a new one
+        line_base = addr & ~(line_size - 1)  # align down to line boundary
+
+        # Clamp to valid memory if the full line would go out of range
+        if not self._is_address_valid(line_base, line_size):
+            # Fall back to exact read
+            data, _ = self._read_memory(addr, length)
+            self._cache_line = None
+            return data
+
+        data, msg = self._read_memory(line_base, line_size)
+        if data is None:
+            self._cache_line = None
+            return None
+
+        self._cache_line = (line_base, data)
+        offset = addr - line_base
+        return data[offset : offset + length]
 
     def _handle_write(self, params: str) -> str:
         """Handle memory write: M addr,length:XX.. -> OK or Exx."""
@@ -404,6 +455,8 @@ class GDBRSPBridge:
         try:
             ok, msg = self._write_memory(addr, write_data)
             if ok:
+                # Write invalidates cache line
+                self._cache_line = None
                 return "OK"
             else:
                 logger.debug(f"RSP write 0x{addr:08X}+{length} failed: {msg}")

@@ -163,10 +163,11 @@ class TestGDBRSPBridge(unittest.TestCase):
         self.assertEqual(resp, "OK")
 
     def test_handle_read_success(self):
-        self.read_fn.return_value = (b"\xab\xcd\xef\x01", "OK")
+        self.read_fn.return_value = (b"\xab\xcd\xef\x01" + b"\x00" * 252, "OK")
         resp = self.bridge._handle_read("20001000,4")
         self.assertEqual(resp, "abcdef01")
-        self.read_fn.assert_called_once_with(0x20001000, 4)
+        # Cache prefetches a full 256-byte line at aligned address
+        self.read_fn.assert_called_once_with(0x20001000, 256)
 
     def test_handle_read_failure(self):
         self.read_fn.return_value = (None, "timeout")
@@ -360,6 +361,69 @@ class TestGDBRSPBridgeMemoryRegions(unittest.TestCase):
         resp = self.bridge._handle_packet("MFFFFFFFC,2:abcd")
         self.assertEqual(resp, "E14")
         self.write_fn.assert_not_called()
+
+
+class TestGDBRSPBridgeReadCache(unittest.TestCase):
+    """Test single-shot read cache line behavior."""
+
+    def setUp(self):
+        self.read_fn = MagicMock(return_value=(bytes(range(256)), "ok"))
+        self.write_fn = MagicMock(return_value=(True, "ok"))
+        self.bridge = GDBRSPBridge(
+            read_memory_fn=self.read_fn,
+            write_memory_fn=self.write_fn,
+            listen_port=0,
+        )
+
+    def test_cache_hit_same_line(self):
+        """Second read within same cache line should not call device."""
+        self.bridge._handle_read("20000000,4")
+        self.assertEqual(self.read_fn.call_count, 1)
+
+        self.read_fn.reset_mock()
+        self.bridge._handle_read("20000010,4")
+        self.read_fn.assert_not_called()
+
+    def test_cache_returns_correct_slice(self):
+        """Cached read returns the correct byte offset."""
+        resp = self.bridge._handle_read("20000010,4")
+        self.assertEqual(resp, "10111213")
+
+    def test_cache_miss_different_line(self):
+        """Read in a different cache line should fetch from device."""
+        self.bridge._handle_read("20000000,4")
+        self.bridge._handle_read("20000100,4")  # next 256B line
+        self.assertEqual(self.read_fn.call_count, 2)
+
+    def test_large_read_bypasses_cache(self):
+        """Read larger than cache line goes directly to device."""
+        big = b"\xbb" * 512
+        self.read_fn.return_value = (big, "ok")
+        self.bridge._handle_read("20000000,200")  # 512 bytes
+        self.read_fn.assert_called_with(0x20000000, 512)
+        self.assertIsNone(self.bridge._cache_line)
+
+    def test_write_invalidates_cache(self):
+        """Write should discard the cache line."""
+        self.bridge._handle_read("20000000,4")
+        self.assertIsNotNone(self.bridge._cache_line)
+
+        self.bridge._handle_write("20000000,4:DEADBEEF")
+        self.assertIsNone(self.bridge._cache_line)
+
+    def test_non_memory_packet_invalidates_cache(self):
+        """Non-read/write packets (e.g. step) should discard cache."""
+        self.bridge._handle_read("20000000,4")
+        self.assertIsNotNone(self.bridge._cache_line)
+
+        self.bridge._handle_packet("s")  # step
+        self.assertIsNone(self.bridge._cache_line)
+
+    def test_failed_read_not_cached(self):
+        """Failed device read should not populate cache."""
+        self.read_fn.return_value = (None, "error")
+        self.bridge._handle_read("20000000,4")
+        self.assertIsNone(self.bridge._cache_line)
 
 
 if __name__ == "__main__":
