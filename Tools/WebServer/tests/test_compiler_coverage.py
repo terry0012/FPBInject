@@ -6,7 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -302,8 +302,6 @@ class TestCompileInjectMarkerLines(unittest.TestCase):
             src.write("/*FPB_INJECT*/\nint WidgetIMP::type() const { return 0; }\n")
             src_path = src.name
 
-        # nm -l output must reference the actual source file basename
-        src_basename = os.path.basename(src_path)
         mock_run.side_effect = [
             Mock(returncode=0, stderr=""),  # compile
             # _resolve_functions_from_marker_lines nm -C -l

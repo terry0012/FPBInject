@@ -619,9 +619,7 @@ class FPBCLI:
                     ascii_part = "".join(
                         chr(b) if 0x20 <= b < 0x7F else "." for b in chunk
                     )
-                    lines.append(
-                        f"0x{addr + i:08X}: {hex_part:<48s} {ascii_part}"
-                    )
+                    lines.append(f"0x{addr + i:08X}: {hex_part:<48s} {ascii_part}")
                 result["hex_dump"] = "\n".join(lines)
             elif fmt == "raw":
                 result["data"] = data.hex()
