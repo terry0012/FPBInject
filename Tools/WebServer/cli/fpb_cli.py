@@ -596,12 +596,12 @@ class FPBCLI:
 
             self._fpb.enter_fl_mode()
             try:
-                data, error = self._fpb.read_memory(addr, length)
+                data, msg = self._fpb.read_memory(addr, length)
             finally:
                 self._fpb.exit_fl_mode()
 
-            if error or data is None:
-                raise FPBCLIError(f"Memory read failed: {error}")
+            if data is None:
+                raise FPBCLIError(f"Memory read failed: {msg}")
 
             result = {
                 "success": True,
@@ -681,12 +681,12 @@ class FPBCLI:
 
             self._fpb.enter_fl_mode()
             try:
-                data, error = self._fpb.read_memory(addr, length)
+                data, msg = self._fpb.read_memory(addr, length)
             finally:
                 self._fpb.exit_fl_mode()
 
-            if error or data is None:
-                raise FPBCLIError(f"Memory read failed: {error}")
+            if data is None:
+                raise FPBCLIError(f"Memory read failed: {msg}")
 
             out_dir = os.path.dirname(output_file)
             if out_dir:
