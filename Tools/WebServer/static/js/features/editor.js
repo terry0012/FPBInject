@@ -211,7 +211,7 @@ async function openDisassembly(funcName, addr) {
   }
 }
 
-async function openManualPatchTab(funcName) {
+async function openManualPatchTab(funcName, origAddr = null) {
   const state = window.FPBState;
   const tabId = `patch_${funcName}`;
   const tabTitle = `patch_${funcName}.c`;
@@ -404,6 +404,7 @@ async function openManualPatchTab(funcName) {
       sourceFile,
       decompiled,
       ghidraNotConfigured,
+      origAddr,
     );
 
     if (decompiled) {
@@ -422,6 +423,7 @@ async function openManualPatchTab(funcName) {
       null,
       decompiled,
       ghidraNotConfigured,
+      origAddr,
     );
   }
 

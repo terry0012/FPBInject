@@ -83,6 +83,7 @@ function generatePatchTemplate(
   sourceFile = null,
   decompiled = null,
   ghidraNotConfigured = false,
+  origAddr = null,
 ) {
   let returnType = 'void';
   let params = '';
@@ -95,6 +96,7 @@ function generatePatchTemplate(
 
   const paramNames = extractParamNames(params);
   const hasDecompiled = !!decompiled;
+  const hasOrigAddr = !!origAddr;
 
   let ghidraTip = '';
   if (ghidraNotConfigured) {
@@ -123,37 +125,73 @@ ${processedBody}
 `;
   }
 
+  /* Build call-original section when origAddr is available */
+  let callOrigSection = '';
+  let origFuncDef = '';
+  if (hasOrigAddr) {
+    const fnPtrType = `${returnType} (*)(${params || 'void'})`;
+    const argList = paramNames.join(', ');
+    origFuncDef = `/* Original function pointer - call via ORIG_${funcName.toUpperCase()}() to avoid recursion */
+typedef ${fnPtrType} ${funcName}_fn_t;
+#define ORIG_${funcName.toUpperCase()} ((${funcName}_fn_t)${origAddr})
+
+`;
+    if (returnType === 'void') {
+      callOrigSection = `
+    /* Disable patch -> call original -> re-enable patch */
+    fpb_enable_patch(${slot}, false);
+    ORIG_${funcName.toUpperCase()}(${argList});
+    fpb_enable_patch(${slot}, true);`;
+    } else {
+      callOrigSection = `
+    /* Disable patch -> call original -> re-enable patch */
+    fpb_enable_patch(${slot}, false);
+    ${returnType} result = ORIG_${funcName.toUpperCase()}(${argList});
+    fpb_enable_patch(${slot}, true);
+
+    return result;`;
+    }
+  }
+
   /* Build function body */
   let functionBody = '';
-  if (hasDecompiled) {
+  if (hasOrigAddr) {
+    /* Generate call-original pattern */
+    functionBody = `fl_println("Hooked ${funcName}!");
+
+    /* TODO: Add your pre-call logic here */
+${callOrigSection}`;
+    if (hasDecompiled) {
+      functionBody += `
+${decompiledSection}`;
+    }
+  } else if (hasDecompiled) {
     functionBody = `/* TODO: Your patch code here */
 ${decompiledSection}`;
   } else {
     functionBody = `fl_println("Patched ${funcName} executed!");
 
-/* TODO: Your patch code here */`;
-  }
+    /* TODO: Your patch code here */`;
+    /* Add return statement for non-void functions */
+    if (returnType !== 'void') {
+      functionBody += `
 
-  /* Add return statement for non-void functions */
-  if (returnType !== 'void') {
-    functionBody += `
-
-/* TODO: return appropriate value */
-return 0;`;
+    /* TODO: return appropriate value */
+    return 0;`;
+    }
   }
 
   /* Build complete template */
   let template = `/*
  * Patch for: ${funcName}
  * Slot: ${slot}
-${sourceFile ? ` * Source: ${sourceFile}` : ''}
- */
+${sourceFile ? ` * Source: ${sourceFile}\n` : ''}${hasOrigAddr ? ` * Original: ${origAddr}\n` : ''} */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 ${ghidraTip}
-/* FPB_INJECT */
+${origFuncDef}/* FPB_INJECT */
 __attribute__((section(".fpb.text"), used))
 ${returnType} ${funcName}(${params || 'void'})
 {

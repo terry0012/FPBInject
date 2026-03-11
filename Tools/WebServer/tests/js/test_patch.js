@@ -451,6 +451,88 @@ module.exports = function (w) {
       );
       assertContains(template, 'int size');
     });
+    /* Tests for origAddr parameter - call original function pattern */
+    it('generates call-original pattern when origAddr provided', () => {
+      const template = w.generatePatchTemplate(
+        'test_func',
+        0,
+        'void test_func(int x)',
+        null,
+        null,
+        false,
+        '0x08001234',
+      );
+      assertContains(template, 'ORIG_TEST_FUNC');
+      assertContains(template, 'fpb_enable_patch');
+      assertContains(template, '0x08001234');
+    });
+    it('generates function pointer typedef with origAddr', () => {
+      const template = w.generatePatchTemplate(
+        'my_func',
+        1,
+        'int my_func(int a, int b)',
+        null,
+        null,
+        false,
+        '0x08002000',
+      );
+      assertContains(template, 'typedef');
+      assertContains(template, 'my_func_fn_t');
+      assertContains(template, 'ORIG_MY_FUNC');
+    });
+    it('generates correct call pattern for void function', () => {
+      const template = w.generatePatchTemplate(
+        'do_work',
+        2,
+        'void do_work(int val)',
+        null,
+        null,
+        false,
+        '0x08003000',
+      );
+      assertContains(template, 'fpb_enable_patch(2, false)');
+      assertContains(template, 'ORIG_DO_WORK(val)');
+      assertContains(template, 'fpb_enable_patch(2, true)');
+      /* void function should not have result variable */
+      assertTrue(!template.includes('result ='));
+    });
+    it('generates correct call pattern for non-void function', () => {
+      const template = w.generatePatchTemplate(
+        'get_value',
+        3,
+        'int get_value(void)',
+        null,
+        null,
+        false,
+        '0x08004000',
+      );
+      assertContains(template, 'int result = ORIG_GET_VALUE()');
+      assertContains(template, 'return result');
+    });
+    it('includes fpb_enable_patch when origAddr provided', () => {
+      const template = w.generatePatchTemplate(
+        'func',
+        0,
+        null,
+        null,
+        null,
+        false,
+        '0x08001000',
+      );
+      assertContains(template, 'fpb_enable_patch');
+    });
+    it('shows Original address in header comment', () => {
+      const template = w.generatePatchTemplate(
+        'func',
+        0,
+        null,
+        null,
+        null,
+        false,
+        '0x08005000',
+      );
+      assertContains(template, 'Original: 0x08005000');
+    });
   });
 
   describe('displayInjectionStats Function', () => {

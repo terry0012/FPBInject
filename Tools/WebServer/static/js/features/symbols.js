@@ -62,10 +62,10 @@ function onSymbolClick(name, addr, type) {
   }, 250);
 }
 
-function onSymbolDblClick(name, type) {
+function onSymbolDblClick(name, type, addr) {
   clearTimeout(_symbolClickTimer);
   if (type === 'function') {
-    openManualPatchTab(name);
+    openManualPatchTab(name, addr);
   } else {
     // For const/variable, double-click same as single-click
     openSymbolValueTab(name, type);
@@ -798,7 +798,7 @@ async function searchSymbols() {
           const cfg = _getSymbolTypeConfig(sym.type || 'function');
           const colorStyle = cfg.color ? ` style="color: ${cfg.color};"` : '';
           return `
-        <div class="symbol-item" onclick="onSymbolClick('${sym.name}', '${sym.addr}', '${sym.type || 'function'}')" ondblclick="onSymbolDblClick('${sym.name}', '${sym.type || 'function'}')">
+        <div class="symbol-item" onclick="onSymbolClick('${sym.name}', '${sym.addr}', '${sym.type || 'function'}')" ondblclick="onSymbolDblClick('${sym.name}', '${sym.type || 'function'}', '${sym.addr}')">
           <i class="codicon ${cfg.icon} symbol-icon"${colorStyle}></i>
           <span class="symbol-name">${sym.name}</span>
           <span class="symbol-addr">${sym.addr}</span>
