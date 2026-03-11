@@ -586,6 +586,130 @@ class FPBCLI:
         except Exception as e:
             self.output_error(f"file_download failed: {str(e)}", e)
 
+    def mem_read(self, addr: int, length: int, fmt: str = "hex") -> None:
+        """Read memory from device"""
+        try:
+            if not self._device_state.connected:
+                raise FPBCLIError(
+                    "No device connected. Use --port to specify serial port."
+                )
+
+            self._fpb.enter_fl_mode()
+            try:
+                data, error = self._fpb.read_memory(addr, length)
+            finally:
+                self._fpb.exit_fl_mode()
+
+            if error or data is None:
+                raise FPBCLIError(f"Memory read failed: {error}")
+
+            result = {
+                "success": True,
+                "addr": f"0x{addr:08X}",
+                "length": length,
+                "actual_length": len(data),
+            }
+
+            if fmt == "hex":
+                # Classic hex dump with ASCII
+                lines = []
+                for i in range(0, len(data), 16):
+                    chunk = data[i : i + 16]
+                    hex_part = " ".join(f"{b:02X}" for b in chunk)
+                    ascii_part = "".join(
+                        chr(b) if 0x20 <= b < 0x7F else "." for b in chunk
+                    )
+                    lines.append(
+                        f"0x{addr + i:08X}: {hex_part:<48s} {ascii_part}"
+                    )
+                result["hex_dump"] = "\n".join(lines)
+            elif fmt == "raw":
+                result["data"] = data.hex()
+            elif fmt == "u32":
+                words = []
+                for i in range(0, len(data) - 3, 4):
+                    val = int.from_bytes(data[i : i + 4], "little")
+                    words.append(f"0x{val:08X}")
+                result["words"] = words
+
+            self.output_json(result)
+
+        except Exception as e:
+            self.output_error(f"Memory read failed: {str(e)}", e)
+
+    def mem_write(self, addr: int, data_hex: str) -> None:
+        """Write memory to device"""
+        try:
+            if not self._device_state.connected:
+                raise FPBCLIError(
+                    "No device connected. Use --port to specify serial port."
+                )
+
+            try:
+                data = bytes.fromhex(data_hex)
+            except ValueError:
+                raise FPBCLIError(
+                    f"Invalid hex data: '{data_hex}'. Use hex string like 'DEADBEEF'."
+                )
+
+            self._fpb.enter_fl_mode()
+            try:
+                success, error = self._fpb.write_memory(addr, data)
+            finally:
+                self._fpb.exit_fl_mode()
+
+            if not success:
+                raise FPBCLIError(f"Memory write failed: {error}")
+
+            self.output_json(
+                {
+                    "success": True,
+                    "addr": f"0x{addr:08X}",
+                    "length": len(data),
+                    "message": f"Wrote {len(data)} bytes to 0x{addr:08X}",
+                }
+            )
+
+        except Exception as e:
+            self.output_error(f"Memory write failed: {str(e)}", e)
+
+    def mem_dump(self, addr: int, length: int, output_file: str) -> None:
+        """Dump memory region to binary file"""
+        try:
+            if not self._device_state.connected:
+                raise FPBCLIError(
+                    "No device connected. Use --port to specify serial port."
+                )
+
+            self._fpb.enter_fl_mode()
+            try:
+                data, error = self._fpb.read_memory(addr, length)
+            finally:
+                self._fpb.exit_fl_mode()
+
+            if error or data is None:
+                raise FPBCLIError(f"Memory read failed: {error}")
+
+            out_dir = os.path.dirname(output_file)
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+
+            with open(output_file, "wb") as f:
+                f.write(data)
+
+            self.output_json(
+                {
+                    "success": True,
+                    "addr": f"0x{addr:08X}",
+                    "length": len(data),
+                    "output_file": output_file,
+                    "message": f"Dumped {len(data)} bytes to {output_file}",
+                }
+            )
+
+        except Exception as e:
+            self.output_error(f"Memory dump failed: {str(e)}", e)
+
     def cleanup(self):
         """Cleanup resources"""
         self._device_state.disconnect()
@@ -765,6 +889,46 @@ Examples:
     )
     unpatch_parser.add_argument("--all", action="store_true", help="Remove all patches")
 
+    # mem-read command (requires device)
+    memread_parser = subparsers.add_parser(
+        "mem-read", help="Read memory from device (requires --port)"
+    )
+    memread_parser.add_argument(
+        "addr", type=lambda x: int(x, 0), help="Memory address (hex: 0x20000000)"
+    )
+    memread_parser.add_argument(
+        "length", type=lambda x: int(x, 0), help="Number of bytes to read"
+    )
+    memread_parser.add_argument(
+        "--fmt",
+        choices=["hex", "raw", "u32"],
+        default="hex",
+        help="Output format: hex (dump), raw (hex string), u32 (32-bit words)",
+    )
+
+    # mem-write command (requires device)
+    memwrite_parser = subparsers.add_parser(
+        "mem-write", help="Write memory to device (requires --port)"
+    )
+    memwrite_parser.add_argument(
+        "addr", type=lambda x: int(x, 0), help="Memory address (hex: 0x20000000)"
+    )
+    memwrite_parser.add_argument(
+        "data", help="Hex data to write (e.g., DEADBEEF01020304)"
+    )
+
+    # mem-dump command (requires device)
+    memdump_parser = subparsers.add_parser(
+        "mem-dump", help="Dump memory region to file (requires --port)"
+    )
+    memdump_parser.add_argument(
+        "addr", type=lambda x: int(x, 0), help="Start address (hex: 0x20000000)"
+    )
+    memdump_parser.add_argument(
+        "length", type=lambda x: int(x, 0), help="Number of bytes to dump"
+    )
+    memdump_parser.add_argument("output", help="Output binary file path")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -819,6 +983,12 @@ Examples:
             )
         elif args.command == "unpatch":
             cli.unpatch(args.comp, args.all)
+        elif args.command == "mem-read":
+            cli.mem_read(args.addr, args.length, args.fmt)
+        elif args.command == "mem-write":
+            cli.mem_write(args.addr, args.data)
+        elif args.command == "mem-dump":
+            cli.mem_dump(args.addr, args.length, args.output)
     except FPBCLIError as e:
         cli.output_error(str(e))
         sys.exit(1)
