@@ -283,11 +283,11 @@ def _trigger_auto_inject(file_path):
                 return
 
             device.auto_inject_modified_funcs = marked
-            logger.info(f"Found marked functions (in-place): {marked}")
+            logger.info(f"Found marker lines (in-place): {marked}")
 
             # Step 2: Skip patch generation - use in-place compilation
             device.auto_inject_status = "generating"
-            device.auto_inject_message = f"In-place compile: {', '.join(marked)}"
+            device.auto_inject_message = f"In-place compile: markers at lines {marked}"
             device.auto_inject_progress = 40
             device.auto_inject_last_update = time.time()
 
@@ -331,16 +331,13 @@ def _trigger_auto_inject(file_path):
                     source_ext = os.path.splitext(file_path)[1] or ".c"
 
                     device.auto_inject_status = "injecting"
-                    func_list = ", ".join(marked[:3])
-                    if len(marked) > 3:
-                        func_list += f" etc. {len(marked)} functions"
-                    device.auto_inject_message = f"Injecting: {func_list}"
+                    device.auto_inject_message = f"Injecting: markers at lines {marked}"
                     device.auto_inject_progress = 80
                     device.auto_inject_last_update = time.time()
 
                     success, result = fpb.inject_multi(
                         source_file=file_path,
-                        inject_functions=marked,
+                        inject_marker_lines=marked,
                         patch_mode=device.patch_mode,
                         source_ext=source_ext,
                         original_source_file=file_path,

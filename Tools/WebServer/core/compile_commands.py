@@ -386,6 +386,8 @@ def parse_compile_commands(
             cflags.append(token)
         elif token.startswith("-std="):
             cflags.append(token)
+        elif token.startswith("-g"):
+            cflags.append(token)
 
         i += 1
 

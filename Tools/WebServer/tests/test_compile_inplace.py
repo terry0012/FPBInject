@@ -348,7 +348,7 @@ class TestGeneratePatchInplace(unittest.TestCase):
     """Test PatchGenerator.generate_patch_inplace method."""
 
     def test_inplace_finds_markers(self):
-        """generate_patch_inplace returns file path and function list."""
+        """generate_patch_inplace returns file path and marker line numbers."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".c", delete=False) as f:
             f.write(
                 "/* FPB_INJECT */\n"
@@ -361,11 +361,9 @@ class TestGeneratePatchInplace(unittest.TestCase):
 
         try:
             gen = PatchGenerator()
-            result_path, funcs = gen.generate_patch_inplace(path)
+            result_path, marker_lines = gen.generate_patch_inplace(path)
             self.assertEqual(result_path, path)
-            self.assertIn("my_func", funcs)
-            self.assertIn("another_func", funcs)
-            self.assertEqual(len(funcs), 2)
+            self.assertEqual(marker_lines, [1, 4])
         finally:
             os.unlink(path)
 
@@ -403,9 +401,9 @@ class TestGeneratePatchInplace(unittest.TestCase):
 
         try:
             gen = PatchGenerator()
-            result_path, funcs = gen.generate_patch_inplace(path)
+            result_path, marker_lines = gen.generate_patch_inplace(path)
             self.assertEqual(result_path, path)
-            self.assertEqual(funcs, ["target"])
+            self.assertEqual(marker_lines, [3])
         finally:
             os.unlink(path)
 
@@ -522,7 +520,7 @@ class TestAutoInjectInplace(unittest.TestCase):
 
         mock_gen.generate_patch_inplace.return_value = (
             path,
-            ["target_func"],
+            [1],  # marker line numbers
         )
 
         # Mock serial connection
@@ -569,7 +567,7 @@ class TestAutoInjectInplace(unittest.TestCase):
             mock_fpb.inject_multi.assert_called_once()
             call_kwargs = mock_fpb.inject_multi.call_args[1]
             self.assertEqual(call_kwargs["source_file"], path)
-            self.assertEqual(call_kwargs["inject_functions"], ["target_func"])
+            self.assertEqual(call_kwargs["inject_marker_lines"], [1])
             # source_content should NOT be in kwargs (in-place mode)
             self.assertNotIn("source_content", call_kwargs)
 

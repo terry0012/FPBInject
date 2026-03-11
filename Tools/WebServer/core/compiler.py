@@ -102,6 +102,127 @@ def _resolve_mangled_names(
     return mapping
 
 
+def _resolve_functions_from_marker_lines(
+    obj_file: str,
+    source_file: str,
+    marker_lines: List[int],
+    toolchain_path: Optional[str] = None,
+    env: Optional[dict] = None,
+) -> List[str]:
+    """Resolve FPB_INJECT marker line numbers to actual function names.
+
+    Uses nm -C -l on the compiled .o file to get function definition line numbers
+    from DWARF debug info, then matches each marker line to the nearest function
+    defined after it.
+
+    This approach is immune to C++ syntax complexity (destructors, templates,
+    operator overloads, multi-line signatures, namespaces, etc.) because the
+    compiler itself resolves the function names.
+
+    Requires -g (debug info) in compile flags.
+
+    Args:
+        obj_file: Path to compiled .o file
+        source_file: Path to original source file (for filtering)
+        marker_lines: 1-based line numbers of FPB_INJECT markers
+        toolchain_path: Path to toolchain binaries
+        env: Subprocess environment
+
+    Returns:
+        List of demangled function names (without namespace prefix, e.g. "Class::method")
+    """
+    if not marker_lines:
+        return []
+
+    try:
+        nm_cmd = get_tool_path("arm-none-eabi-nm", toolchain_path)
+        result = subprocess.run(
+            [nm_cmd, "-C", "-l", "--defined-only", obj_file],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if result.returncode != 0:
+            logger.warning(f"nm -l failed: {result.stderr}")
+            return []
+
+        # Parse nm -l output: "00000000 T func_name\t/path/to/file.cpp:123"
+        # Build list of (line_number, func_name) for functions in our source file
+        source_basename = os.path.basename(source_file)
+        func_lines = []  # [(line_no, demangled_name), ...]
+
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            # nm -l format: "addr type name\tfile:line" or "addr type name"
+            tab_parts = line.split("\t")
+            if len(tab_parts) < 2:
+                continue
+            sym_part = tab_parts[0]
+            loc_part = tab_parts[1]
+
+            # Parse symbol
+            sym_fields = sym_part.split()
+            if len(sym_fields) < 3:
+                continue
+            sym_type = sym_fields[1]
+            if sym_type.upper() != "T":
+                continue
+
+            # Parse location - "file:line" or "file:line (discriminator N)"
+            if ":" not in loc_part:
+                continue
+            # Check if this is our source file
+            loc_file = loc_part.rsplit(":", 1)[0]
+            if source_basename not in loc_file:
+                continue
+            try:
+                line_str = loc_part.rsplit(":", 1)[1].split()[0]
+                line_no = int(line_str)
+            except (ValueError, IndexError):
+                continue
+
+            # Extract demangled name (strip params)
+            full_name = " ".join(sym_fields[2:])
+            if "(" in full_name:
+                func_name = full_name.split("(")[0]
+            else:
+                func_name = full_name
+
+            func_lines.append((line_no, func_name))
+
+        if not func_lines:
+            logger.warning(
+                "No function line info found in .o file. "
+                "Ensure -g is in compile flags."
+            )
+            return []
+
+        # Sort by line number
+        func_lines.sort(key=lambda x: x[0])
+
+        # For each marker line, find the nearest function defined AFTER it
+        resolved = []
+        for marker_line in sorted(marker_lines):
+            best = None
+            for func_line, func_name in func_lines:
+                if func_line > marker_line:
+                    best = func_name
+                    break
+            if best:
+                if best not in resolved:
+                    resolved.append(best)
+                    logger.info(f"Resolved marker at line {marker_line} -> {best}")
+            else:
+                logger.warning(f"No function found after marker at line {marker_line}")
+
+        return resolved
+
+    except Exception as e:
+        logger.warning(f"Failed to resolve functions from marker lines: {e}")
+        return []
+
+
 def compile_inject(
     source_content: str = None,
     base_addr: int = 0,
@@ -113,14 +234,16 @@ def compile_inject(
     toolchain_path: Optional[str] = None,
     source_file: str = None,
     inject_functions: List[str] = None,
+    inject_marker_lines: List[int] = None,
 ) -> Tuple[Optional[bytes], Optional[Dict[str, int]], str]:
     """
     Compile injection code from source content to binary.
 
     Supports two modes:
     1. Content mode (legacy): source_content is written to a temp file and compiled.
-    2. In-place mode: source_file is compiled directly, inject_functions specifies
-       which functions to keep via linker script KEEP(.text.func).
+    2. In-place mode: source_file is compiled directly. Target functions are
+       identified either by inject_functions (explicit names) or
+       inject_marker_lines (line numbers resolved via nm debug info).
 
     Args:
         source_content: Source code content to compile (content mode)
@@ -132,7 +255,9 @@ def compile_inject(
         original_source_file: Path to original source file for matching compile flags
         toolchain_path: Path to toolchain binaries
         source_file: Path to source file to compile in-place (in-place mode)
-        inject_functions: List of function names to keep (in-place mode)
+        inject_functions: List of function names to keep (in-place mode, explicit)
+        inject_marker_lines: List of FPB_INJECT marker line numbers (in-place mode,
+            resolved to function names after compilation via nm -l debug info)
 
     Returns:
         Tuple of (binary_data, symbols, error_message)
@@ -296,6 +421,29 @@ def compile_inject(
         result = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if result.returncode != 0:
             return None, None, f"Compile error:\n{result.stderr}"
+
+        # If marker lines were provided instead of function names,
+        # resolve them to actual function names using nm -l debug info.
+        # This avoids fragile regex parsing of C++ function signatures.
+        if inplace_mode and inject_marker_lines and not inject_functions:
+            resolved = _resolve_functions_from_marker_lines(
+                obj_file, source_file, inject_marker_lines, toolchain_path, env
+            )
+            if resolved:
+                inject_functions = resolved
+                logger.info(
+                    f"Resolved {len(inject_marker_lines)} marker lines "
+                    f"to {len(resolved)} functions: {resolved}"
+                )
+            else:
+                return (
+                    None,
+                    None,
+                    (
+                        "Failed to resolve FPB_INJECT markers to function names. "
+                        "Ensure -g (debug info) is in compile flags."
+                    ),
+                )
 
         # Resolve C++ mangled names from the compiled object file.
         # When compiling C++ code, function names get mangled (e.g.,

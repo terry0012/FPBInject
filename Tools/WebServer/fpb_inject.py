@@ -364,6 +364,7 @@ class FPBInject:
         original_source_file: str = None,
         source_file: str = None,
         inject_functions: list = None,
+        inject_marker_lines: list = None,
     ) -> Tuple[Optional[bytes], Optional[Dict[str, int]], str]:
         """Compile injection code from source content or file to binary."""
         return compiler_utils.compile_inject(
@@ -377,6 +378,7 @@ class FPBInject:
             toolchain_path=self._toolchain_path,
             source_file=source_file,
             inject_functions=inject_functions,
+            inject_marker_lines=inject_marker_lines,
         )
 
     # ========== Injection Workflow ==========
@@ -463,6 +465,7 @@ class FPBInject:
         original_source_file: str = None,
         source_file: str = None,
         inject_functions: list = None,
+        inject_marker_lines: list = None,
     ) -> Tuple[bool, dict]:
         """Perform full injection workflow."""
         result = {
@@ -519,6 +522,7 @@ class FPBInject:
             original_source_file=original_source_file,
             source_file=source_file,
             inject_functions=inject_functions,
+            inject_marker_lines=inject_marker_lines,
         )
         if error:
             return False, {"error": error}
@@ -543,6 +547,7 @@ class FPBInject:
             original_source_file=original_source_file,
             source_file=source_file,
             inject_functions=inject_functions,
+            inject_marker_lines=inject_marker_lines,
         )
         if error:
             return False, {"error": error}
@@ -635,6 +640,7 @@ class FPBInject:
         original_source_file: str = None,
         source_file: str = None,
         inject_functions: list = None,
+        inject_marker_lines: list = None,
     ) -> Tuple[bool, dict]:
         """
         Perform multi-function injection workflow.
@@ -742,6 +748,7 @@ class FPBInject:
                 original_source_file=original_source_file,
                 source_file=source_file,
                 inject_functions=inject_functions,
+                inject_marker_lines=inject_marker_lines,
             )
 
             injection_entry = {

@@ -52,6 +52,27 @@ class PatchGenerator:
         """
         self.repo_root = repo_root
 
+    def find_marker_lines(self, content: str) -> List[int]:
+        """
+        Find line numbers of FPB_INJECT markers in source content.
+
+        This is a simple grep-based approach that avoids fragile regex parsing
+        of C++ function signatures. The actual function names are resolved later
+        by the compiler using nm -l debug info.
+
+        Args:
+            content: Source file content
+
+        Returns:
+            List of 1-based line numbers where FPB_INJECT markers appear
+        """
+        marker_lines = []
+        for i, line in enumerate(content.split("\n"), 1):
+            if self._is_marker_line(line):
+                marker_lines.append(i)
+                logger.info(f"Found FPB_INJECT marker at line {i}")
+        return marker_lines
+
     def find_marked_functions(self, content: str) -> List[str]:
         """
         Find all functions marked with FPB_INJECT comment.
@@ -163,19 +184,19 @@ class PatchGenerator:
     def generate_patch_inplace(
         self,
         file_path: str,
-    ) -> Tuple[Optional[str], List[str]]:
+    ) -> Tuple[Optional[str], List[int]]:
         """
-        In-place mode: detect FPB_INJECT markers and return file path + function list.
+        In-place mode: detect FPB_INJECT markers and return file path + marker lines.
 
         No source code copying or modification is performed. The original file
-        will be compiled directly, and the linker script will use KEEP(.text.func)
-        to select only the marked functions.
+        will be compiled directly. Function names are resolved later by the
+        compiler using nm debug info (avoiding fragile C++ signature parsing).
 
         Args:
             file_path: Path to the source file with FPB_INJECT markers
 
         Returns:
-            Tuple of (file_path, list_of_marked_function_names)
+            Tuple of (file_path, list_of_marker_line_numbers)
             Returns (None, []) if no markers found.
         """
         if not os.path.exists(file_path):
@@ -185,18 +206,18 @@ class PatchGenerator:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
 
-        marked_functions = self.find_marked_functions(content)
+        marker_lines = self.find_marker_lines(content)
 
-        if not marked_functions:
+        if not marker_lines:
             logger.warning(f"No FPB_INJECT markers found in {file_path}")
             return None, []
 
         logger.info(
-            f"In-place mode: found {len(marked_functions)} functions "
-            f"in {file_path}: {marked_functions}"
+            f"In-place mode: found {len(marker_lines)} markers "
+            f"in {file_path} at lines: {marker_lines}"
         )
 
-        return file_path, marked_functions
+        return file_path, marker_lines
 
     def _process_content(
         self,
