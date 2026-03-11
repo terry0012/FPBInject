@@ -678,6 +678,7 @@ class FPBInject:
             original_source_file=original_source_file,
             source_file=source_file,
             inject_functions=inject_functions,
+            inject_marker_lines=inject_marker_lines,
         )
         if error:
             return False, {"error": error}
