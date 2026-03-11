@@ -37,38 +37,8 @@
  */
 
 #include "fpb_inject.h"
+#include "fpb_regs.h"
 #include <string.h>
-
-#ifdef FPB_HOST_TESTING
-/* Use mock registers for host-based testing */
-#include "fpb_mock_regs.h"
-#else
-/* FPB Base Address (Cortex-M3/M4) */
-#define FPB_BASE 0xE0002000UL
-
-/* FPB Control Register */
-#define FPB_CTRL (*(volatile uint32_t*)(FPB_BASE + 0x000))
-
-/* FPB Remap Register */
-#define FPB_REMAP (*(volatile uint32_t*)(FPB_BASE + 0x004))
-
-/* FPB Comparator Registers (0-7) */
-#define FPB_COMP(n) (*(volatile uint32_t*)(FPB_BASE + 0x008 + ((n)*4)))
-#endif /* FPB_HOST_TESTING */
-
-/* CTRL Register Bits */
-#define FPB_CTRL_ENABLE (1UL << 0)
-#define FPB_CTRL_KEY (1UL << 1)
-
-/* COMP Register Bits */
-#define FPB_COMP_ENABLE (1UL << 0)
-#define FPB_COMP_ADDR_MASK 0x1FFFFFFCUL
-
-/* Replacement Modes */
-#define FPB_REPLACE_REMAP (0UL << 30)
-#define FPB_REPLACE_LOWER (1UL << 30)
-#define FPB_REPLACE_UPPER (2UL << 30)
-#define FPB_REPLACE_BOTH (3UL << 30)
 
 /* Remap table size */
 #define FPB_REMAP_TABLE_SIZE FPB_MAX_CODE_COMP
@@ -119,16 +89,6 @@ static uint32_t generate_b_w_instruction(uint32_t from_addr, uint32_t target_add
 
     return ((uint32_t)hw2 << 16) | hw1;
 }
-
-#ifndef FPB_HOST_TESTING
-static inline void dsb(void) {
-    __asm volatile("dsb" ::: "memory");
-}
-
-static inline void isb(void) {
-    __asm volatile("isb" ::: "memory");
-}
-#endif /* !FPB_HOST_TESTING */
 
 fpb_result_t fpb_init(void) {
     /* If already initialized, return success (idempotent) */
