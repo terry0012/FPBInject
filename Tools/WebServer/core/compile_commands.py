@@ -18,6 +18,16 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
+# C++ source file extensions
+_CPP_EXTENSIONS = (".cpp", ".cc", ".cxx")
+
+
+def _is_cpp_source(source_file: str) -> bool:
+    """Check if a source file is C++ based on its extension."""
+    if not source_file:
+        return False
+    return any(source_file.endswith(ext) for ext in _CPP_EXTENSIONS)
+
 
 def parse_dep_file_for_compile_command(
     source_file: str,
@@ -205,6 +215,14 @@ def parse_compile_commands(
             if parent:
                 search_dirs.append(parent)
 
+        # Determine accepted extensions based on source file type
+        source_is_cpp = _is_cpp_source(source_file)
+        if source_is_cpp:
+            # For C++ sources, prefer C++ entries first, then fall back to C
+            accepted_exts = _CPP_EXTENSIONS + (".c",)
+        else:
+            accepted_exts = (".c",)
+
         for search_dir in search_dirs:
             if not search_dir:
                 continue
@@ -212,7 +230,7 @@ def parse_compile_commands(
                 if not isinstance(entry, dict):
                     continue
                 file_path = entry.get("file", "")
-                if not file_path.endswith(".c"):
+                if not any(file_path.endswith(ext) for ext in accepted_exts):
                     continue
                 file_dir = os.path.dirname(os.path.normpath(file_path))
                 if file_dir.startswith(search_dir) or search_dir.startswith(file_dir):
@@ -235,15 +253,17 @@ def parse_compile_commands(
         if dep_file_command:
             logger.info(f"Found compile command from .d file for: {source_file}")
 
-    # Fourth pass: fallback to any C file
+    # Fourth pass: fallback to any C/C++ file
     if not selected_entry and not dep_file_command:
+        source_is_cpp = _is_cpp_source(source_file) if source_file else False
+        fallback_exts = _CPP_EXTENSIONS + (".c",) if source_is_cpp else (".c",)
         for entry in commands:
             if not isinstance(entry, dict):
                 continue
             file_path = entry.get("file", "")
-            if file_path.endswith(".c") and "__ASSEMBLY__" not in entry.get(
-                "command", ""
-            ):
+            if any(
+                file_path.endswith(ext) for ext in fallback_exts
+            ) and "__ASSEMBLY__" not in entry.get("command", ""):
                 selected_entry = entry
                 logger.warning(
                     f"Using fallback compile command from: {file_path} "
@@ -252,7 +272,7 @@ def parse_compile_commands(
                 break
 
     if not selected_entry and not dep_file_command:
-        logger.error("No suitable C file entry found in compile_commands.json")
+        logger.error("No suitable source file entry found in compile_commands.json")
         return None
 
     if dep_file_command:
@@ -359,7 +379,12 @@ def parse_compile_commands(
             "-fdata-sections",
             "-fno-common",
             "-nostdlib",
+            "-nostdinc++",
+            "-fno-exceptions",
+            "-fno-rtti",
         ]:
+            cflags.append(token)
+        elif token.startswith("-std="):
             cflags.append(token)
 
         i += 1

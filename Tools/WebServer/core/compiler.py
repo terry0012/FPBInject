@@ -116,6 +116,25 @@ def compile_inject(
     defines = config.get("defines", [])
     cflags = config.get("cflags", [])
 
+    # Auto-switch gcc → g++ for C++ source files.
+    # When fallback matching picks a C entry, the compiler will be gcc which
+    # cannot resolve C++ standard library headers. Switching to g++ fixes this
+    # because g++ automatically adds the C++ include paths.
+    effective_ext = source_ext
+    if not effective_ext and source_file:
+        effective_ext = os.path.splitext(source_file)[1]
+    if not effective_ext and original_source_file:
+        effective_ext = os.path.splitext(original_source_file)[1]
+
+    if effective_ext and effective_ext.lower() in (".cpp", ".cc", ".cxx"):
+        compiler_base = os.path.basename(compiler)
+        if "g++" not in compiler_base and "gcc" in compiler_base:
+            new_compiler = compiler.replace("gcc", "g++", 1)
+            logger.info(
+                f"C++ source detected, switching compiler: {compiler} -> {new_compiler}"
+            )
+            compiler = new_compiler
+
     with tempfile.TemporaryDirectory() as tmpdir:
         if inplace_mode:
             # In-place mode: compile the original file directly

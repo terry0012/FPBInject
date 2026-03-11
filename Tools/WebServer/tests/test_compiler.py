@@ -1134,3 +1134,228 @@ class TestToolchainPathPriority(unittest.TestCase):
                 # Should keep original since tool not found in toolchain_path
                 called_cmd = mock_run.call_args[0][0]
                 self.assertEqual(called_cmd[0], "/opt/old/bin/arm-none-eabi-gcc")
+
+
+class TestCppSupport(unittest.TestCase):
+    """Tests for C++ source file support in compile_commands and compiler."""
+
+    def test_is_cpp_source(self):
+        """Test _is_cpp_source helper detects C++ extensions."""
+        from core.compile_commands import _is_cpp_source
+
+        self.assertTrue(_is_cpp_source("main.cpp"))
+        self.assertTrue(_is_cpp_source("/path/to/file.cc"))
+        self.assertTrue(_is_cpp_source("test.cxx"))
+        self.assertFalse(_is_cpp_source("main.c"))
+        self.assertFalse(_is_cpp_source("header.h"))
+        self.assertFalse(_is_cpp_source(None))
+        self.assertFalse(_is_cpp_source(""))
+
+    def test_directory_tree_match_finds_cpp_entry(self):
+        """Second pass should find .cpp entries when source is C++."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [
+                    {
+                        "directory": "/build",
+                        "command": "arm-none-eabi-g++ -c -std=c++17 -DCPP_ENTRY -o widget.o /src/gui/widget.cpp",
+                        "file": "/src/gui/widget.cpp",
+                    },
+                ],
+                f,
+            )
+            path = f.name
+
+        try:
+            result = compiler.parse_compile_commands(
+                path, source_file="/src/gui/wrapper.cpp"
+            )
+            self.assertIsNotNone(result)
+            self.assertIn("CPP_ENTRY", result["defines"])
+            self.assertEqual(result["compiler"], "arm-none-eabi-g++")
+        finally:
+            os.unlink(path)
+
+    def test_directory_tree_match_skips_cpp_for_c_source(self):
+        """Second pass should NOT match .cpp entries when source is .c."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [
+                    {
+                        "directory": "/build",
+                        "command": "arm-none-eabi-g++ -c -DCPP_ONLY -o widget.o /src/gui/widget.cpp",
+                        "file": "/src/gui/widget.cpp",
+                    },
+                ],
+                f,
+            )
+            path = f.name
+
+        try:
+            result = compiler.parse_compile_commands(
+                path, source_file="/src/gui/helper.c"
+            )
+            # Should not match .cpp entry for a .c source
+            self.assertIsNone(result)
+        finally:
+            os.unlink(path)
+
+    def test_fallback_finds_cpp_entry_for_cpp_source(self):
+        """Fourth pass should find .cpp fallback when source is C++."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [
+                    {
+                        "directory": "/build",
+                        "command": "arm-none-eabi-g++ -c -std=c++17 -DFALLBACK_CPP -o app.o /other/app.cpp",
+                        "file": "/other/app.cpp",
+                    },
+                ],
+                f,
+            )
+            path = f.name
+
+        try:
+            result = compiler.parse_compile_commands(
+                path, source_file="/completely/different/path/test.cpp"
+            )
+            self.assertIsNotNone(result)
+            self.assertIn("FALLBACK_CPP", result["defines"])
+        finally:
+            os.unlink(path)
+
+    def test_fallback_skips_cpp_entry_for_c_source(self):
+        """Fourth pass should NOT use .cpp fallback when source is .c."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(
+                [
+                    {
+                        "directory": "/build",
+                        "command": "arm-none-eabi-g++ -c -o app.o /other/app.cpp",
+                        "file": "/other/app.cpp",
+                    },
+                ],
+                f,
+            )
+            path = f.name
+
+        try:
+            result = compiler.parse_compile_commands(
+                path, source_file="/different/test.c"
+            )
+            # Should not match .cpp entry for a .c source
+            self.assertIsNone(result)
+        finally:
+            os.unlink(path)
+
+    @patch("core.compiler.parse_compile_commands")
+    def test_auto_switch_gcc_to_gpp_for_cpp(self, mock_parse):
+        """Compiler should auto-switch from gcc to g++ for .cpp files."""
+        mock_parse.return_value = {
+            "compiler": "arm-none-eabi-gcc",
+            "objcopy": "arm-none-eabi-objcopy",
+            "includes": [],
+            "defines": [],
+            "cflags": ["-mcpu=cortex-m4"],
+            "ldflags": [],
+            "raw_command": None,
+        }
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Mock(returncode=1, stderr="error")
+
+            compiler.compile_inject(
+                "/* FPB_INJECT */\nvoid test_func() {}",
+                0x20000000,
+                compile_commands_path="/tmp/cc.json",
+                source_ext=".cpp",
+            )
+
+            called_cmd = mock_run.call_args[0][0]
+            self.assertIn("g++", called_cmd[0])
+            self.assertNotIn("gcc", called_cmd[0])
+
+    @patch("core.compiler.parse_compile_commands")
+    def test_no_switch_for_c_source(self, mock_parse):
+        """Compiler should stay gcc for .c files."""
+        mock_parse.return_value = {
+            "compiler": "arm-none-eabi-gcc",
+            "objcopy": "arm-none-eabi-objcopy",
+            "includes": [],
+            "defines": [],
+            "cflags": ["-mcpu=cortex-m4"],
+            "ldflags": [],
+            "raw_command": None,
+        }
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Mock(returncode=1, stderr="error")
+
+            compiler.compile_inject(
+                "/* FPB_INJECT */\nvoid test_func() {}",
+                0x20000000,
+                compile_commands_path="/tmp/cc.json",
+                source_ext=".c",
+            )
+
+            called_cmd = mock_run.call_args[0][0]
+            self.assertIn("gcc", called_cmd[0])
+
+    @patch("core.compiler.parse_compile_commands")
+    def test_no_switch_when_already_gpp(self, mock_parse):
+        """Compiler should not double-switch if already g++."""
+        mock_parse.return_value = {
+            "compiler": "arm-none-eabi-g++",
+            "objcopy": "arm-none-eabi-objcopy",
+            "includes": [],
+            "defines": [],
+            "cflags": ["-mcpu=cortex-m4"],
+            "ldflags": [],
+            "raw_command": None,
+        }
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Mock(returncode=1, stderr="error")
+
+            compiler.compile_inject(
+                "/* FPB_INJECT */\nvoid test_func() {}",
+                0x20000000,
+                compile_commands_path="/tmp/cc.json",
+                source_ext=".cpp",
+            )
+
+            called_cmd = mock_run.call_args[0][0]
+            self.assertEqual(called_cmd[0], "arm-none-eabi-g++")
+
+    @patch("core.compiler.parse_compile_commands")
+    def test_auto_switch_inplace_mode(self, mock_parse):
+        """In-place mode should also auto-switch gcc→g++ based on file extension."""
+        mock_parse.return_value = {
+            "compiler": "arm-none-eabi-gcc",
+            "objcopy": "arm-none-eabi-objcopy",
+            "includes": [],
+            "defines": [],
+            "cflags": ["-mcpu=cortex-m4"],
+            "ldflags": [],
+            "raw_command": None,
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".cpp", delete=False) as src:
+            src.write("void gui_loop_close(void** data) {}")
+            src_path = src.name
+
+        try:
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = Mock(returncode=1, stderr="error")
+
+                compiler.compile_inject(
+                    source_file=src_path,
+                    base_addr=0x20000000,
+                    compile_commands_path="/tmp/cc.json",
+                    inject_functions=["gui_loop_close"],
+                )
+
+                called_cmd = mock_run.call_args[0][0]
+                self.assertIn("g++", called_cmd[0])
+        finally:
+            os.unlink(src_path)
