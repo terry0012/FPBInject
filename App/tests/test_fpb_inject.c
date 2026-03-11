@@ -170,6 +170,101 @@ void test_fpb_clear_patch_not_set(void) {
 }
 
 /* ============================================================================
+ * fpb_enable_patch Tests
+ * ============================================================================ */
+
+void test_fpb_enable_patch_disable(void) {
+    setup_fpb();
+    fpb_init();
+    fpb_set_patch(0, 0x08001000, 0x20002000);
+
+    /* Disable the patch */
+    fpb_result_t ret = fpb_enable_patch(0, false);
+    TEST_ASSERT_EQUAL(FPB_OK, ret);
+    TEST_ASSERT_FALSE(mock_fpb_comp_is_enabled(0));
+}
+
+void test_fpb_enable_patch_reenable(void) {
+    setup_fpb();
+    fpb_init();
+    fpb_set_patch(0, 0x08001000, 0x20002000);
+
+    /* Disable then re-enable */
+    fpb_enable_patch(0, false);
+    TEST_ASSERT_FALSE(mock_fpb_comp_is_enabled(0));
+
+    fpb_result_t ret = fpb_enable_patch(0, true);
+    TEST_ASSERT_EQUAL(FPB_OK, ret);
+    TEST_ASSERT_TRUE(mock_fpb_comp_is_enabled(0));
+}
+
+void test_fpb_enable_patch_not_initialized(void) {
+    setup_fpb();
+    /* Don't call fpb_init() */
+
+    fpb_result_t ret = fpb_enable_patch(0, true);
+    TEST_ASSERT_EQUAL(FPB_ERR_NOT_INIT, ret);
+}
+
+void test_fpb_enable_patch_invalid_comp(void) {
+    setup_fpb();
+    fpb_init();
+
+    fpb_result_t ret = fpb_enable_patch(99, true);
+    TEST_ASSERT_EQUAL(FPB_ERR_INVALID_COMP, ret);
+}
+
+void test_fpb_enable_patch_unset_patch(void) {
+    setup_fpb();
+    fpb_init();
+
+    /* Try to enable a patch that was never set */
+    fpb_result_t ret = fpb_enable_patch(0, true);
+    TEST_ASSERT_EQUAL(FPB_ERR_INVALID_PARAM, ret);
+}
+
+void test_fpb_enable_patch_state_preserved(void) {
+    setup_fpb();
+    fpb_init();
+    fpb_set_patch(0, 0x08001000, 0x20002000);
+
+    /* Disable the patch */
+    fpb_enable_patch(0, false);
+
+    /* State should still have the addresses */
+    const fpb_state_t* state = fpb_get_state();
+    TEST_ASSERT_EQUAL_HEX(0x08001000, state->comp[0].original_addr);
+    TEST_ASSERT_EQUAL_HEX(0x20002000, state->comp[0].patch_addr);
+    TEST_ASSERT_FALSE(state->comp[0].enabled);
+}
+
+void test_fpb_enable_patch_multiple(void) {
+    setup_fpb();
+    fpb_init();
+    fpb_set_patch(0, 0x08001000, 0x20002000);
+    fpb_set_patch(1, 0x08002000, 0x20003000);
+
+    /* Disable only patch 0 */
+    fpb_enable_patch(0, false);
+    TEST_ASSERT_FALSE(mock_fpb_comp_is_enabled(0));
+    TEST_ASSERT_TRUE(mock_fpb_comp_is_enabled(1));
+
+    /* Re-enable patch 0 */
+    fpb_enable_patch(0, true);
+    TEST_ASSERT_TRUE(mock_fpb_comp_is_enabled(0));
+    TEST_ASSERT_TRUE(mock_fpb_comp_is_enabled(1));
+}
+
+void test_fpb_enable_patch_disable_unset(void) {
+    setup_fpb();
+    fpb_init();
+
+    /* Disabling an unset patch should be OK (no-op) */
+    fpb_result_t ret = fpb_enable_patch(0, false);
+    TEST_ASSERT_EQUAL(FPB_OK, ret);
+}
+
+/* ============================================================================
  * fpb_get_state Tests
  * ============================================================================ */
 
@@ -513,6 +608,17 @@ void run_fpb_tests(void) {
     RUN_TEST(test_fpb_clear_patch_basic);
     RUN_TEST(test_fpb_clear_patch_invalid_comp);
     RUN_TEST(test_fpb_clear_patch_not_set);
+    TEST_SUITE_END();
+
+    TEST_SUITE_BEGIN("fpb_inject - Enable/Disable Patch");
+    RUN_TEST(test_fpb_enable_patch_disable);
+    RUN_TEST(test_fpb_enable_patch_reenable);
+    RUN_TEST(test_fpb_enable_patch_not_initialized);
+    RUN_TEST(test_fpb_enable_patch_invalid_comp);
+    RUN_TEST(test_fpb_enable_patch_unset_patch);
+    RUN_TEST(test_fpb_enable_patch_state_preserved);
+    RUN_TEST(test_fpb_enable_patch_multiple);
+    RUN_TEST(test_fpb_enable_patch_disable_unset);
     TEST_SUITE_END();
 
     TEST_SUITE_BEGIN("fpb_inject - State Query");

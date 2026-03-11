@@ -297,6 +297,39 @@ fpb_result_t fpb_clear_patch(uint8_t comp_id) {
     return FPB_OK;
 }
 
+fpb_result_t fpb_enable_patch(uint8_t comp_id, bool enable) {
+    if (!g_fpb_state.initialized) {
+        return FPB_ERR_NOT_INIT;
+    }
+
+    if (comp_id >= g_fpb_state.num_code_comp) {
+        return FPB_ERR_INVALID_COMP;
+    }
+
+    /* Read current comparator value */
+    uint32_t comp_val = FPB_COMP(comp_id);
+
+    /* Can only enable a patch that has address configured in hardware */
+    if (enable && (comp_val & FPB_COMP_ADDR_MASK) == 0) {
+        return FPB_ERR_INVALID_PARAM;
+    }
+
+    /* Toggle ENABLE bit, preserving address and REPLACE mode settings */
+    if (enable) {
+        comp_val |= FPB_COMP_ENABLE;
+    } else {
+        comp_val &= ~FPB_COMP_ENABLE;
+    }
+    FPB_COMP(comp_id) = comp_val;
+
+    g_fpb_state.comp[comp_id].enabled = enable;
+
+    dsb();
+    isb();
+
+    return FPB_OK;
+}
+
 const fpb_state_t* fpb_get_state(void) {
     return &g_fpb_state;
 }

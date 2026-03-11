@@ -156,6 +156,16 @@ fpb_result_t fpb_set_patch(uint8_t comp_id, uint32_t original_addr, uint32_t pat
 fpb_result_t fpb_clear_patch(uint8_t comp_id);
 
 /**
+ * @brief  Enable or disable a code patch
+ * @param  comp_id: Comparator ID
+ * @param  enable: true to enable, false to disable
+ * @retval FPB_OK: Success
+ * @retval FPB_ERR_NOT_INIT: FPB not initialized
+ * @retval FPB_ERR_INVALID_COMP: Invalid comparator ID
+ */
+fpb_result_t fpb_enable_patch(uint8_t comp_id, bool enable);
+
+/**
  * @brief  Get FPB state information
  * @return Pointer to FPB state structure
  */
