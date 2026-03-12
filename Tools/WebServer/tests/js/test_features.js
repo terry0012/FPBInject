@@ -1075,36 +1075,34 @@ module.exports = function (w) {
     it('is not async (uses browser download)', () =>
       assertTrue(w.saveSymbolData.constructor.name === 'Function'));
 
-    it('returns early if no tab content', () => {
+    it('returns early if no cached data', () => {
+      w._symTabDataCache.delete('nonexistent_xyz_999');
       w.saveSymbolData('nonexistent_xyz_999');
       assertTrue(true);
     });
 
-    it('returns early if no hex dump element', () => {
-      // Get element via getElementById (registers in mockElements)
-      const el = browserGlobals.document.getElementById(
-        'tabContent_symval_no_hex2',
-      );
-      el.querySelector = () => null;
+    it('returns early if cached data has no hex_data', () => {
+      w._symTabDataCache.set('no_hex2', { data: {}, isConst: false });
       w.saveSymbolData('no_hex2');
       assertTrue(true);
+      w._symTabDataCache.delete('no_hex2');
     });
 
-    it('triggers browser download for valid hex data', () => {
-      const el = browserGlobals.document.getElementById(
-        'tabContent_symval_save_dl',
-      );
-      const hexDump = { textContent: '0x0000: DE AD BE EF  ....' };
-      el.querySelector = (sel) => (sel === '.sym-hex-dump' ? hexDump : null);
+    it('triggers browser download for valid cached hex data', () => {
+      w._symTabDataCache.set('save_dl', {
+        data: { hex_data: 'DEADBEEF' },
+        isConst: false,
+      });
 
       w.FPBState.toolTerminal = new MockTerminal();
       w.saveSymbolData('save_dl');
       assertTrue(
         w.FPBState.toolTerminal._writes.some(
-          (wr) => wr.msg && wr.msg.includes('Saved'),
+          (wr) => wr.msg && wr.msg.includes('Saved 4 bytes'),
         ),
       );
       w.FPBState.toolTerminal = null;
+      w._symTabDataCache.delete('save_dl');
     });
   });
 

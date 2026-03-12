@@ -1024,35 +1024,21 @@ async function writeSymbolToDevice(symName) {
    SAVE SYMBOL DATA TO FILE
    =========================== */
 function saveSymbolData(symName) {
-  const tabId = `symval_${symName}`;
-  const contentDiv = document.getElementById(`tabContent_${tabId}`);
-  if (!contentDiv) return;
+  // Use cached data directly instead of parsing DOM hex dump
+  const cached = _symTabDataCache.get(symName);
+  const hexData = cached?.data?.hex_data;
 
-  const hexDump = contentDiv.querySelector('.sym-hex-dump');
-  if (!hexDump) {
-    log.error('No hex data to write');
-    return;
-  }
-
-  // Parse hex bytes from the dump text
-  const dumpText = hexDump.textContent;
-  const hexBytes = dumpText
-    .replace(/^0x[0-9a-f]+:\s*/gm, '')
-    .replace(/\s{2,}.*$/gm, '')
-    .replace(/\s+/g, '')
-    .trim();
-
-  if (!hexBytes || !/^[0-9a-fA-F]+$/.test(hexBytes)) {
-    log.error('Invalid hex data');
+  if (!hexData || !/^[0-9a-fA-F]+$/.test(hexData)) {
+    log.error('No hex data to save');
     return;
   }
 
   const fileName = `${symName}.bin`;
 
   // Convert hex string to binary Uint8Array
-  const bytes = new Uint8Array(hexBytes.length / 2);
+  const bytes = new Uint8Array(hexData.length / 2);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hexBytes.substr(i * 2, 2), 16);
+    bytes[i] = parseInt(hexData.substr(i * 2, 2), 16);
   }
 
   const blob = new Blob([bytes], { type: 'application/octet-stream' });
