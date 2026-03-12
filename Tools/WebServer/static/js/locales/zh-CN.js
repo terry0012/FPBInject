@@ -372,6 +372,7 @@ window.i18nResources['zh-CN'] = {
       clear_slot: '清除槽位',
       click_to_disable: '点击禁用补丁',
       click_to_enable: '点击启用补丁',
+      toggle_enable: '切换补丁启用/禁用',
       reinject_all: '重新注入全部 ({{count}} 个文件)',
       slot_original: '劫持地址',
       slot_target: '跳转地址',

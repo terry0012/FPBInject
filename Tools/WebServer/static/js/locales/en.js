@@ -379,6 +379,7 @@ window.i18nResources['en'] = {
       clear_slot: 'Clear slot',
       click_to_disable: 'Click to disable patch',
       click_to_enable: 'Click to enable patch',
+      toggle_enable: 'Toggle patch enable/disable',
       reinject_all: 'Re-inject all ({{count}} files)',
       slot_original: 'Original',
       slot_target: 'Target',
