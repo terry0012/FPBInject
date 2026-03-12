@@ -676,6 +676,8 @@ module.exports = function (w) {
     });
 
     it('updates speed and ETA', () => {
+      // Reset throttle timer so update is not skipped
+      w._lastSpeedUpdateTime = 0;
       const progressBar =
         browserGlobals.document.getElementById('transferProgress');
       const progressSpeed = browserGlobals.document.createElement('span');

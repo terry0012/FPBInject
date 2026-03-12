@@ -634,6 +634,8 @@ function formatETA(seconds) {
 /**
  * Update transfer progress bar
  */
+window._lastSpeedUpdateTime = 0;
+
 function updateTransferProgress(percent, text, speed, eta, stats) {
   const progressBar = document.getElementById('transferProgress');
   const progressFill = progressBar?.querySelector('.progress-fill');
@@ -655,11 +657,16 @@ function updateTransferProgress(percent, text, speed, eta, stats) {
       typeof percent === 'number' ? percent.toFixed(1) : percent;
     progressText.textContent = text || `${percentStr}%`;
   }
-  if (progressSpeed && speed !== undefined) {
-    progressSpeed.textContent = formatSpeed(speed);
-  }
-  if (progressEta && eta !== undefined) {
-    progressEta.textContent = `ETA: ${formatETA(eta)}`;
+  // Throttle speed/ETA updates to every 500ms
+  const now = Date.now();
+  if (now - window._lastSpeedUpdateTime >= 500) {
+    window._lastSpeedUpdateTime = now;
+    if (progressSpeed && speed !== undefined) {
+      progressSpeed.textContent = formatSpeed(speed);
+    }
+    if (progressEta && eta !== undefined) {
+      progressEta.textContent = `ETA: ${formatETA(eta)}`;
+    }
   }
   // Update packet loss stats - always show
   if (progressStats && progressLoss && stats) {
