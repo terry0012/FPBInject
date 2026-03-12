@@ -133,6 +133,70 @@ class TestParseArgs(unittest.TestCase):
         self.assertTrue(args.no_browser)
 
 
+class TestCheckToolchain(unittest.TestCase):
+    """check_toolchain function tests"""
+
+    @patch("main.shutil.which", return_value="/usr/bin/gdb-multiarch")
+    def test_gdb_found(self, mock_which):
+        """Returns True when gdb-multiarch is found."""
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    def test_gdb_not_found_non_interactive(self, mock_stdin, mock_which):
+        """Non-interactive mode continues without gdb."""
+        mock_stdin.isatty.return_value = False
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    @patch("builtins.input", return_value="")
+    def test_gdb_not_found_user_continues(self, mock_input, mock_stdin, mock_which):
+        """User presses Enter to continue without gdb."""
+        mock_stdin.isatty.return_value = True
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    @patch("builtins.input", return_value="n")
+    def test_gdb_not_found_user_says_no(self, mock_input, mock_stdin, mock_which):
+        """User says 'n' to continue without gdb."""
+        mock_stdin.isatty.return_value = True
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    @patch("builtins.input", return_value="q")
+    def test_gdb_not_found_user_quits(self, mock_input, mock_stdin, mock_which):
+        """User says 'q' to quit."""
+        mock_stdin.isatty.return_value = True
+        with self.assertRaises(SystemExit) as cm:
+            main.check_toolchain()
+        self.assertEqual(cm.exception.code, 0)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    @patch("builtins.input", side_effect=EOFError)
+    def test_gdb_not_found_eof(self, mock_input, mock_stdin, mock_which):
+        """EOFError on input returns True."""
+        mock_stdin.isatty.return_value = True
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+    @patch("main.shutil.which", return_value=None)
+    @patch("sys.stdin")
+    @patch("builtins.input", side_effect=KeyboardInterrupt)
+    def test_gdb_not_found_keyboard_interrupt(self, mock_input, mock_stdin, mock_which):
+        """KeyboardInterrupt on input returns True."""
+        mock_stdin.isatty.return_value = True
+        result = main.check_toolchain()
+        self.assertTrue(result)
+
+
 class TestRestoreState(unittest.TestCase):
     """restore_state function tests"""
 
@@ -206,6 +270,62 @@ class TestRestoreState(unittest.TestCase):
 
         mock_worker.assert_called_once()
         self.assertIsNone(state.device.ser)
+
+    @patch("services.file_watcher_manager.start_elf_watcher", return_value=True)
+    def test_restore_state_elf_watcher_success(self, mock_elf_watcher):
+        """Test restore_state restores ELF watcher successfully"""
+        state.device.auto_connect = False
+        state.device.elf_path = "/tmp/test.elf"
+
+        main.restore_state()
+
+        mock_elf_watcher.assert_called_once_with("/tmp/test.elf")
+
+    @patch("services.file_watcher_manager.start_elf_watcher", return_value=False)
+    def test_restore_state_elf_watcher_failure(self, mock_elf_watcher):
+        """Test restore_state handles ELF watcher failure"""
+        state.device.auto_connect = False
+        state.device.elf_path = "/tmp/test.elf"
+
+        main.restore_state()
+
+        mock_elf_watcher.assert_called_once_with("/tmp/test.elf")
+
+    @patch("services.log_recorder.log_recorder")
+    def test_restore_state_log_recorder_success(self, mock_recorder):
+        """Test restore_state restores log recorder"""
+        state.device.auto_connect = False
+        state.device.log_file_enabled = True
+        state.device.log_file_path = "/tmp/test.log"
+        mock_recorder.start.return_value = (True, None)
+
+        main.restore_state()
+
+        mock_recorder.start.assert_called_once_with("/tmp/test.log")
+
+    @patch("services.log_recorder.log_recorder")
+    def test_restore_state_log_recorder_failure(self, mock_recorder):
+        """Test restore_state handles log recorder failure"""
+        state.device.auto_connect = False
+        state.device.log_file_enabled = True
+        state.device.log_file_path = "/tmp/test.log"
+        mock_recorder.start.return_value = (False, "Permission denied")
+
+        main.restore_state()
+
+        mock_recorder.start.assert_called_once()
+        self.assertFalse(state.device.log_file_enabled)
+
+    @patch("main.os.path.exists", return_value=True)
+    @patch("core.gdb_manager.start_gdb_async")
+    def test_restore_state_gdb_auto_start(self, mock_gdb, mock_exists):
+        """Test restore_state auto-starts GDB when ELF exists"""
+        state.device.auto_connect = False
+        state.device.elf_path = "/tmp/test.elf"
+
+        main.restore_state()
+
+        mock_gdb.assert_called_once()
 
 
 class TestMain(unittest.TestCase):
