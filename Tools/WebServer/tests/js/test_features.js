@@ -994,12 +994,12 @@ module.exports = function (w) {
 
   describe('onSymbolDblClick Dispatch', () => {
     it('dispatches function to openManualPatchTab', () => {
-      w.onSymbolDblClick('main', 'function');
+      w.onSymbolDblClick('main', '0x08000000', 'function');
       assertTrue(true);
     });
 
     it('dispatches variable to openSymbolValueTab', () => {
-      w.onSymbolDblClick('g_var', 'variable');
+      w.onSymbolDblClick('g_var', '0x20000000', 'variable');
       assertTrue(true);
     });
   });
