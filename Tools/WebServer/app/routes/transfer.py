@@ -9,13 +9,13 @@ File Transfer API routes for FPBInject Web Server.
 Provides endpoints for file upload/download between PC and embedded device.
 """
 
-import json
 import logging
 import queue
 import threading
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, jsonify, request
 
+from app.utils.sse import sse_response
 from core.file_transfer import FileTransfer
 from core.state import state
 from utils.crc import crc16
@@ -333,14 +333,12 @@ def api_transfer_upload():
 
         ft = _get_file_transfer(log_callback=log_callback)
         start_time = time.time()
-        last_speed_time = start_time
+        last_time = start_time
         last_bytes = 0
-        last_speed = 0
-        last_eta = 0
         cancelled = False
 
         def progress_cb(uploaded, total):
-            nonlocal last_speed_time, last_bytes, last_speed, last_eta, cancelled
+            nonlocal last_time, last_bytes, cancelled
 
             # Update activity time
             last_activity["time"] = time.time()
@@ -352,16 +350,19 @@ def api_transfer_upload():
 
             now = time.time()
             elapsed = now - start_time
-            speed_interval = now - last_speed_time
+            interval = now - last_time
 
-            # Recalculate speed/ETA every 0.5s or on final chunk
-            report_speed = speed_interval >= 0.5 or uploaded >= total
-            if report_speed and speed_interval > 0:
-                last_speed = (uploaded - last_bytes) / speed_interval
-                remaining = total - uploaded
-                last_eta = remaining / last_speed if last_speed > 0 else 0
-                last_speed_time = now
+            # Calculate speed (bytes per second)
+            if interval > 0.1:  # Update speed every 100ms
+                speed = (uploaded - last_bytes) / interval
+                last_time = now
                 last_bytes = uploaded
+            else:
+                speed = uploaded / elapsed if elapsed > 0 else 0
+
+            # Calculate ETA
+            remaining = total - uploaded
+            eta = remaining / speed if speed > 0 else 0
 
             progress_queue.put(
                 {
@@ -369,8 +370,8 @@ def api_transfer_upload():
                     "uploaded": uploaded,
                     "total": total,
                     "percent": round((uploaded / total) * 100, 1) if total > 0 else 0,
-                    "speed": round(last_speed, 1) if report_speed else None,
-                    "eta": round(last_eta, 1) if report_speed else None,
+                    "speed": round(speed, 1),
+                    "eta": round(eta, 1),
                     "elapsed": round(elapsed, 1),
                     "stats": ft.get_stats(),
                 }
@@ -509,36 +510,7 @@ def api_transfer_upload():
     thread = threading.Thread(target=upload_task, daemon=True)
     thread.start()
 
-    def generate():
-        # Inactivity timeout: 120 seconds without any progress
-        INACTIVITY_TIMEOUT = 120.0
-        while True:
-            try:
-                item = progress_queue.get(timeout=5.0)
-                if item is None:
-                    break
-                # Update activity time on any message
-                last_activity["time"] = time.time()
-                yield f"data: {json.dumps(item)}\n\n"
-            except queue.Empty:
-                # Check if transfer is still active
-                inactive_time = time.time() - last_activity["time"]
-                if inactive_time > INACTIVITY_TIMEOUT:
-                    # No activity for too long, timeout
-                    yield f"data: {json.dumps({'type': 'result', 'success': False, 'error': 'Transfer timeout - no activity'})}\n\n"
-                    break
-                # Send heartbeat to keep connection alive
-                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "close",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return sse_response(progress_queue)
 
 
 @bp.route("/transfer/download", methods=["POST"])
@@ -580,14 +552,12 @@ def api_transfer_download():
 
         ft = _get_file_transfer(log_callback=log_callback)
         start_time = time.time()
-        last_speed_time = start_time
+        last_time = start_time
         last_bytes = 0
-        last_speed = 0
-        last_eta = 0
         cancelled = False
 
         def progress_cb(downloaded, total):
-            nonlocal last_speed_time, last_bytes, last_speed, last_eta, cancelled
+            nonlocal last_time, last_bytes, cancelled
 
             # Update activity time
             last_activity["time"] = time.time()
@@ -599,16 +569,19 @@ def api_transfer_download():
 
             now = time.time()
             elapsed = now - start_time
-            speed_interval = now - last_speed_time
+            interval = now - last_time
 
-            # Recalculate speed/ETA every 0.5s or on final chunk
-            report_speed = speed_interval >= 0.5 or downloaded >= total
-            if report_speed and speed_interval > 0:
-                last_speed = (downloaded - last_bytes) / speed_interval
-                remaining = total - downloaded
-                last_eta = remaining / last_speed if last_speed > 0 else 0
-                last_speed_time = now
+            # Calculate speed (bytes per second)
+            if interval > 0.1:  # Update speed every 100ms
+                speed = (downloaded - last_bytes) / interval
+                last_time = now
                 last_bytes = downloaded
+            else:
+                speed = downloaded / elapsed if elapsed > 0 else 0
+
+            # Calculate ETA
+            remaining = total - downloaded
+            eta = remaining / speed if speed > 0 else 0
 
             progress_queue.put(
                 {
@@ -616,8 +589,8 @@ def api_transfer_download():
                     "downloaded": downloaded,
                     "total": total,
                     "percent": round((downloaded / total) * 100, 1) if total > 0 else 0,
-                    "speed": round(last_speed, 1) if report_speed else None,
-                    "eta": round(last_eta, 1) if report_speed else None,
+                    "speed": round(speed, 1),
+                    "eta": round(eta, 1),
                     "elapsed": round(elapsed, 1),
                     "stats": ft.get_stats(),
                 }
@@ -788,33 +761,4 @@ def api_transfer_download():
     thread = threading.Thread(target=download_task, daemon=True)
     thread.start()
 
-    def generate():
-        # Inactivity timeout: 120 seconds without any progress
-        INACTIVITY_TIMEOUT = 120.0
-        while True:
-            try:
-                item = progress_queue.get(timeout=5.0)
-                if item is None:
-                    break
-                # Update activity time on any message
-                last_activity["time"] = time.time()
-                yield f"data: {json.dumps(item)}\n\n"
-            except queue.Empty:
-                # Check if transfer is still active
-                inactive_time = time.time() - last_activity["time"]
-                if inactive_time > INACTIVITY_TIMEOUT:
-                    # No activity for too long, timeout
-                    yield f"data: {json.dumps({'type': 'result', 'success': False, 'error': 'Transfer timeout - no activity'})}\n\n"
-                    break
-                # Send heartbeat to keep connection alive
-                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "close",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return sse_response(progress_queue)
