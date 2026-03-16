@@ -28,10 +28,10 @@ def _sanitize_path(path: str) -> str:
 
 
 def _format_path_arg(path: str) -> str:
-    """Format path argument for command line, quoting only if needed."""
-    if len(path) == 1:
-        return path
-    return f'"{path}"'
+    """Format path argument for command line, quoting only if path contains spaces."""
+    if " " in path:
+        return f'"{path}"'
+    return path
 
 
 class FileTransfer:

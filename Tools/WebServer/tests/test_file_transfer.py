@@ -394,7 +394,7 @@ class TestFileTransferRemoveMkdir(unittest.TestCase):
         success, msg = self.ft.frename("/old.txt", "/new.txt")
         self.assertTrue(success)
         self.mock_fpb.send_fl_cmd.assert_called_with(
-            'fl -c frename --path "/old.txt" --newpath "/new.txt"',
+            "fl -c frename --path /old.txt --newpath /new.txt",
             timeout=2.0,
             max_retries=3,
         )
@@ -1496,21 +1496,27 @@ class TestPathSanitization(unittest.TestCase):
         self.assertIn("control characters", str(ctx.exception))
 
     def test_path_with_quotes_escaped(self):
-        """Test path with quotes is properly escaped."""
+        """Test path with quotes is escaped by sanitize, no wrapping without spaces."""
         ft = FileTransfer(self.mock_fpb)
         ft.flist('/path/with"quotes"')
         call_args = self.mock_fpb.send_fl_cmd.call_args[0][0]
-        # Verify quotes are escaped
-        self.assertIn('\\"', call_args)
-        # Verify the path is properly quoted
-        self.assertIn('--path "/path/with', call_args)
+        # _sanitize_path escapes " to \", no spaces → no wrapping quotes
+        self.assertIn('--path /path/with\\"quotes\\"', call_args)
+
+    def test_path_with_quotes_and_spaces_escaped(self):
+        """Test path with both quotes and spaces is properly escaped and quoted."""
+        ft = FileTransfer(self.mock_fpb)
+        ft.flist('/path/with "quotes"')
+        call_args = self.mock_fpb.send_fl_cmd.call_args[0][0]
+        # _sanitize_path escapes " to \", then _format_path_arg wraps in quotes due to space
+        self.assertIn('--path "/path/with \\"quotes\\""', call_args)
 
     def test_normal_path_unchanged(self):
-        """Test normal path works correctly."""
+        """Test normal path works correctly without quotes."""
         ft = FileTransfer(self.mock_fpb)
         ft.fopen("/normal/path/file.txt", "r")
         call_args = self.mock_fpb.send_fl_cmd.call_args[0][0]
-        self.assertIn('"/normal/path/file.txt"', call_args)
+        self.assertIn("--path /normal/path/file.txt", call_args)
 
     def test_fmkdir_sanitizes_path(self):
         """Test fmkdir sanitizes path."""

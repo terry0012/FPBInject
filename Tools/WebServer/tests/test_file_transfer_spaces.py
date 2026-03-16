@@ -178,12 +178,12 @@ class TestFileTransferSingleCharPath(unittest.TestCase):
             max_retries=3,
         )
 
-    def test_multi_char_path_has_quotes(self):
-        """Test that multi-char paths still have quotes."""
+    def test_multi_char_path_no_quotes_without_spaces(self):
+        """Test that multi-char paths without spaces have no quotes."""
         success, msg = self.ft.fopen("/a", "r")
         self.assertTrue(success)
         self.mock_fpb.send_fl_cmd.assert_called_with(
-            'fl -c fopen --path "/a" --mode r',
+            "fl -c fopen --path /a --mode r",
             timeout=2.0,
             max_retries=3,
         )
