@@ -439,8 +439,10 @@ window.i18nResources['zh-TW'] = {
         'Trampoline: 使用程式碼跳板（僅 FPB v1）\nDebugMonitor: 使用除錯監視器例外（FPB v1/v2）\nDirect: 直接程式碼替換（僅 FPB v1）\n注意: FPB v2 僅支援 DebugMonitor 模式，會自動切換',
       auto_compile: '原始檔儲存時自動編譯並注入',
       watch_dirs: '監視檔案變化的目錄',
-      upload_chunk_size: '每個上傳資料區塊的大小。較小的值更穩定但更慢。',
-      download_chunk_size: '每個下載資料區塊的大小。較大的值更快。',
+      upload_chunk_size:
+        '每個上傳資料區塊的大小。建議使用「吞吐測試」自動配置，避免手動調整。',
+      download_chunk_size:
+        '每個下載資料區塊的大小。建議使用「吞吐測試」自動配置，避免手動調整。',
       serial_tx_fragment_size:
         '串列埠命令的傳送分片大小（位元組）。0 = 停用。用於解決慢速串列埠驅動問題。',
       serial_tx_fragment_delay:

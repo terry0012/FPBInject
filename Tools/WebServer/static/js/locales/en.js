@@ -449,9 +449,9 @@ window.i18nResources['en'] = {
         'Automatically compile and inject when source files are saved',
       watch_dirs: 'Directories to watch for file changes',
       upload_chunk_size:
-        'Size of each uploaded data block. Smaller values are more stable but slower.',
+        'Size of each uploaded data block. Use "Throughput Test" for auto-configuration instead of manual tuning.',
       download_chunk_size:
-        'Size of each downloaded data block. Larger values are faster.',
+        'Size of each downloaded data block. Use "Throughput Test" for auto-configuration instead of manual tuning.',
       serial_tx_fragment_size:
         'TX fragment size for serial commands (bytes). 0 = disabled. Workaround for slow serial drivers.',
       serial_tx_fragment_delay:
