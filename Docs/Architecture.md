@@ -384,25 +384,37 @@ For special cases with direct RAM REMAP support.
 
 ## Memory Allocation
 
-### Static Mode (Default)
+FPBInject supports two allocation modes, selected at build time via `FL_ALLOC_MODE`.
 
-Fixed 4KB buffer in RAM with proper alignment:
+### Static Mode (Default, `FL_ALLOC_STATIC`)
+
+Uses a fixed buffer managed by `fl_alloc_t` — a bitmap-based fixed-block allocator. The buffer is placed in a dedicated RAM section:
 
 ```c
-__attribute__((aligned(8), section(".ram_code")))
-static uint8_t inject_buffer[4096];
+static uint8_t s_code_buf[1024] __attribute__((aligned(4), section(".ram_code")));
+static fl_alloc_t s_alloc;
+
+fl_alloc_init(&s_alloc, s_code_buf, sizeof(s_code_buf));
 ```
 
-### Dynamic Mode (LIBC)
+Buffer layout:
 
-Uses `malloc()` with 8-byte alignment handling:
-
-```mermaid
-flowchart LR
-    A["malloc()<br/>returns 0x20001544<br/>(4-byte aligned)"] --> B["align to 8<br/>0x20001548"]
-    B --> C["upload code<br/>at offset 4"]
-    C --> D["code starts at<br/>0x20001548"]
 ```
+[ bitmap (ceil(n/8) bytes) ][ size_table (n bytes) ][ block0 ][ block1 ] ... [ blockN-1 ]
+```
+
+Each block is `FL_ALLOC_BLOCK_SIZE` bytes (default 64). Allocations are contiguous runs of blocks tracked via bitmap. Supports `fl_malloc` / `fl_free` with O(n) first-fit search.
+
+### Dynamic Mode (`FL_ALLOC_LIBC`)
+
+Delegates directly to the platform's `malloc` / `free`:
+
+```c
+ctx.malloc_cb = malloc;
+ctx.free_cb = free;
+```
+
+No additional alignment handling — the platform allocator is expected to return suitably aligned memory.
 
 ## Compilation Process
 
@@ -411,35 +423,44 @@ flowchart LR
 Parse `compile_commands.json` to get:
 - Include paths (`-I`)
 - Defines (`-D`)
-- Warning flags
+- CPU/arch flags (`-mcpu`, `-mthumb`, etc.)
+
+If a `.d` dependency file is available, the raw compiler command is used directly (passthrough mode) for maximum accuracy.
 
 ### 2. Compile Injection Code
 
 ```bash
-arm-none-eabi-gcc -c patch.c -o patch.o \
-    -mcpu=cortex-m3 -mthumb -Os \
+arm-none-eabi-gcc <cflags> -c \
     -ffunction-sections -fdata-sections \
-    -fPIC -msingle-pic-base \
-    -mno-pic-data-is-text-relative
+    -Wno-error \
+    -o inject.o patch.c
 ```
 
-Key flags:
-- `-fPIC -msingle-pic-base`: Position-independent code
-- `-mno-pic-data-is-text-relative`: Proper data addressing
+For C++ sources, `gcc` is automatically replaced with `g++`.
 
 ### 3. Link at Target Address
 
 ```bash
-arm-none-eabi-ld patch.o -o patch.elf \
-    -Ttext=0x20001000 \
-    --gc-sections
+arm-none-eabi-gcc <cflags> -nostartfiles -nostdlib \
+    -T inject.ld \
+    -Wl,--gc-sections \
+    -Wl,--allow-multiple-definition \
+    -Wl,-u,<inject_func> \
+    -o inject.elf inject.o \
+    -Wl,--just-symbols=firmware.elf
 ```
+
+The linker script places `.text` at the target RAM address. `--just-symbols` provides firmware symbol addresses without pulling in firmware code. `inject.o` must come before `--just-symbols` so the patch definition wins over the firmware's symbol.
 
 ### 4. Extract Binary
 
 ```bash
-arm-none-eabi-objcopy -O binary patch.elf patch.bin
+arm-none-eabi-objcopy -O binary inject.elf inject.bin
 ```
+
+BSS is included in the binary (zeroed) via a sentinel `.fpb_end` section, ensuring static/global variables are properly initialized after upload.
+
+> **Two-pass compilation**: First compile at placeholder address `0x20000000` to determine code size, then `alloc` on device, then recompile at the actual RAM address.
 
 ## Protocol
 
