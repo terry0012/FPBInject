@@ -14,6 +14,30 @@ FPBInject 利用 [Flash Patch and Breakpoint（FPB）](https://developer.arm.com
 
 ![FPBInject Workbench](Docs/images/webserver-overview.png)
 
+## 传统方式 vs FPBInject
+
+```mermaid
+gantt
+    title 迭代周期对比（典型 STM32 项目）
+    dateFormat  s
+    axisFormat  %Ss
+
+    section 传统方式
+    修改代码           : a1, 0, 5s
+    编译链接           : a2, after a1, 15s
+    擦除 Flash         : a3, after a2, 3s
+    烧录写入           : a4, after a3, 5s
+    MCU 重启           : a5, after a4, 2s
+    复现问题           : a6, after a5, 5s
+
+    section FPBInject
+    修改代码           : b1, 0, 5s
+    编译注入           : b2, after b1, 1s
+    复现问题           : b3, after b2, 5s
+```
+
+传统方式每次迭代都要经历编译、擦除、烧录、重启，才能复现问题。FPBInject 让 MCU 全程不停机：保存补丁，不到一秒即可生效，真正实现“**不熄火修车**”。
+
 ## 工作原理
 
 ```mermaid
