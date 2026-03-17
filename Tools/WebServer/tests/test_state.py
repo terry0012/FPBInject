@@ -274,8 +274,13 @@ class TestToolLogHandler(unittest.TestCase):
         handler.setFormatter(logging.Formatter("%(message)s"))
 
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="hello", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="hello",
+            args=(),
+            exc_info=None,
         )
         handler.emit(record)
 
@@ -293,8 +298,13 @@ class TestToolLogHandler(unittest.TestCase):
         handler.setFormatter(logging.Formatter("%(message)s"))
 
         record = logging.LogRecord(
-            name="test", level=logging.WARNING, pathname="", lineno=0,
-            msg="warn msg", args=(), exc_info=None,
+            name="test",
+            level=logging.WARNING,
+            pathname="",
+            lineno=0,
+            msg="warn msg",
+            args=(),
+            exc_info=None,
         )
         handler.emit(record)
 
@@ -310,13 +320,20 @@ class TestToolLogHandler(unittest.TestCase):
         handler.setFormatter(logging.Formatter("%(message)s"))
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="", lineno=0,
-            msg="err", args=(), exc_info=None,
+            name="test",
+            level=logging.ERROR,
+            pathname="",
+            lineno=0,
+            msg="err",
+            args=(),
+            exc_info=None,
         )
         handler.emit(record)
 
         self.assertIn("[ERROR]", device.tool_log[0]["message"])
-        self.assertNotIn(":", device.tool_log[0]["message"].split("]")[1].split("err")[0].strip())
+        self.assertNotIn(
+            ":", device.tool_log[0]["message"].split("]")[1].split("err")[0].strip()
+        )
 
 
 class TestToolLogFunction(unittest.TestCase):

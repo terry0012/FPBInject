@@ -422,10 +422,7 @@ module.exports = function (w) {
       ids.forEach((id) => {
         const el = browserGlobals.document.getElementById(id);
         if (el) {
-          assertTrue(
-            !el.disabled,
-            `${id} should be enabled when disconnected`,
-          );
+          assertTrue(!el.disabled, `${id} should be enabled when disconnected`);
         }
       });
     });
