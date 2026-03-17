@@ -535,13 +535,12 @@ class TestAutoOpenBrowser(unittest.TestCase):
         )
         mock_create.return_value = Mock()
 
-        with patch("main.logger") as mock_logger:
+        with patch("builtins.print") as mock_print:
             main.main()
 
-        calls = [str(c) for c in mock_logger.info.call_args_list]
-        log_output = "\n".join(calls)
-        self.assertIn("FPBInject Web Server Started", log_output)
-        self.assertIn("http://127.0.0.1:5500", log_output)
+        printed = "\n".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("FPBInject Web Server Started", printed)
+        self.assertIn("http://127.0.0.1:5500", printed)
 
     @patch("main.threading.Timer")
     @patch("main.create_app")
@@ -568,12 +567,11 @@ class TestAutoOpenBrowser(unittest.TestCase):
         )
         mock_create.return_value = Mock()
 
-        with patch("main.logger") as mock_logger:
+        with patch("builtins.print") as mock_print:
             main.main()
 
-        calls = [str(c) for c in mock_logger.info.call_args_list]
-        log_output = "\n".join(calls)
-        self.assertIn("http://127.0.0.1:8080", log_output)
+        printed = "\n".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("http://127.0.0.1:8080", printed)
 
     @patch("main.threading.Timer")
     @patch("main.create_app")
@@ -601,15 +599,14 @@ class TestAutoOpenBrowser(unittest.TestCase):
         mock_sock = Mock()
         mock_sock.getsockname.return_value = ("192.168.1.100", 0)
 
-        with patch("main.logger") as mock_logger, patch(
+        with patch("builtins.print") as mock_print, patch(
             "main.socket.socket", return_value=mock_sock
         ):
             main.main()
 
-        calls = [str(c) for c in mock_logger.info.call_args_list]
-        log_output = "\n".join(calls)
-        self.assertIn("http://192.168.1.100:5500", log_output)
-        self.assertIn("Network", log_output)
+        printed = "\n".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("http://192.168.1.100:5500", printed)
+        self.assertIn("Network", printed)
 
     @patch("main.threading.Timer")
     @patch("main.create_app")
@@ -637,14 +634,13 @@ class TestAutoOpenBrowser(unittest.TestCase):
         mock_sock = Mock()
         mock_sock.connect.side_effect = OSError("Network unreachable")
 
-        with patch("main.logger") as mock_logger, patch(
+        with patch("builtins.print") as mock_print, patch(
             "main.socket.socket", return_value=mock_sock
         ):
             main.main()
 
-        calls = [str(c) for c in mock_logger.info.call_args_list]
-        log_output = "\n".join(calls)
-        self.assertIn("unavailable", log_output)
+        printed = "\n".join(str(c) for c in mock_print.call_args_list)
+        self.assertIn("unavailable", printed)
 
     @patch("main.threading.Timer")
     @patch("main.create_app")

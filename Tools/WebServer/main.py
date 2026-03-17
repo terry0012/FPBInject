@@ -346,15 +346,15 @@ def main():
     max_val_len = max(len(v) for _, v in info_lines)
     inner_width = max(len(title) + 8, label_cols + max_val_len + 2)
 
-    logger.info("")
-    logger.info(f"  ╔{'═' * inner_width}╗")
-    logger.info(f"  ║{title:^{inner_width}s}║")
-    logger.info(f"  ╠{'═' * inner_width}╣")
+    banner_lines = []
+    banner_lines.append(f"  ╔{'═' * inner_width}╗")
+    banner_lines.append(f"  ║{title:^{inner_width}s}║")
+    banner_lines.append(f"  ╠{'═' * inner_width}╣")
     val_width = inner_width - label_cols
     for label, value in info_lines:
-        logger.info(f"  ║  {label} {value:<{val_width}s}║")
-    logger.info(f"  ╚{'═' * inner_width}╝")
-    logger.info("")
+        banner_lines.append(f"  ║  {label} {value:<{val_width}s}║")
+    banner_lines.append(f"  ╚{'═' * inner_width}╝")
+    print("\n" + "\n".join(banner_lines) + "\n", flush=True)
 
     if not args.no_browser:
         threading.Timer(1.0, webbrowser.open, args=[local_url]).start()
