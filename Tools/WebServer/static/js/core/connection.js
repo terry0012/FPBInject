@@ -5,7 +5,6 @@
 /* ===========================
    CONNECTION CONFIGURATION
    =========================== */
-const CONNECTION_DEFAULT_MAX_RETRIES = 10;
 const BACKEND_HEALTH_CHECK_INTERVAL = 5000; // 5 seconds
 
 let backendHealthCheckTimer = null;
@@ -42,34 +41,9 @@ function getBaudrate() {
   return parseInt(sel?.value) || 115200;
 }
 
-/**
- * Get max retries from config or use default
- * @returns {number} Max retry count
- */
-function getConnectionMaxRetries() {
-  const state = window.FPBState;
-  if (
-    state &&
-    state.config &&
-    typeof state.config.transferMaxRetries === 'number'
-  ) {
-    return state.config.transferMaxRetries;
-  }
-  return CONNECTION_DEFAULT_MAX_RETRIES;
-}
-
 /* ===========================
    CONNECTION DIAGNOSTICS
    =========================== */
-
-/**
- * Error codes that should NOT be retried — the problem is deterministic.
- */
-const NON_RETRYABLE_ERRORS = [
-  'permission_denied',
-  'device_not_found',
-  'device_busy',
-];
 
 /**
  * Build a user-friendly diagnostic alert message based on error_code.
@@ -214,7 +188,6 @@ async function toggleConnect() {
     const parity = document.getElementById('parity')?.value || 'none';
     const stopBits = document.getElementById('stopBits')?.value || '1';
     const flowControl = document.getElementById('flowControl')?.value || 'none';
-    const maxRetries = getConnectionMaxRetries();
 
     // Check if port is selected
     if (!port) {
@@ -227,51 +200,36 @@ async function toggleConnect() {
     btn.disabled = true;
     btn.textContent = t('connection.connecting', 'Connecting...');
 
-    let lastError = null;
-    let lastErrorCode = null;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          log.warn(`Retry ${attempt}/${maxRetries}...`);
-          // Wait before retry
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
+    try {
+      const res = await fetch('/api/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          port,
+          baudrate: baud,
+          data_bits: parseInt(dataBits),
+          parity,
+          stop_bits: parseFloat(stopBits),
+          flow_control: flowControl,
+        }),
+      });
+      const data = await res.json();
 
-        const res = await fetch('/api/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            port,
-            baudrate: baud,
-            data_bits: parseInt(dataBits),
-            parity,
-            stop_bits: parseFloat(stopBits),
-            flow_control: flowControl,
-          }),
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          handleConnected(port, `Connected to ${port} @ ${baud} baud`);
-          btn.disabled = false;
-          return;
-        } else {
-          lastError = data.error || 'Connection failed';
-          lastErrorCode = data.error_code || null;
-          // Don't retry deterministic errors
-          if (lastErrorCode && NON_RETRYABLE_ERRORS.includes(lastErrorCode)) {
-            break;
-          }
-        }
-      } catch (e) {
-        lastError = e.message || String(e);
-        lastErrorCode = null;
+      if (data.success) {
+        handleConnected(port, `Connected to ${port} @ ${baud} baud`);
+        btn.disabled = false;
+        return;
       }
+
+      const errorMsg = data.error || 'Connection failed';
+      const errorCode = data.error_code || null;
+      log.error(`Connection failed: ${errorMsg}`);
+      alert(buildDiagnosticMessage(errorCode, errorMsg));
+    } catch (e) {
+      log.error(`Connection failed: ${e}`);
+      alert(buildDiagnosticMessage(null, e.message || String(e)));
     }
 
-    // All retries failed (or skipped) - show diagnostic alert
-    log.error(`Connection failed: ${lastError}`);
-    alert(buildDiagnosticMessage(lastErrorCode, lastError));
     btn.textContent = t('connection.connect', 'Connect');
     btn.disabled = false;
   } else {
@@ -435,7 +393,6 @@ window.handleConnected = handleConnected;
 window.handleDisconnected = handleDisconnected;
 window.toggleConnect = toggleConnect;
 window.checkConnectionStatus = checkConnectionStatus;
-window.getConnectionMaxRetries = getConnectionMaxRetries;
 window.checkBackendHealth = checkBackendHealth;
 window.startBackendHealthCheck = startBackendHealthCheck;
 window.stopBackendHealthCheck = stopBackendHealthCheck;

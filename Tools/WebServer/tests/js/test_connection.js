@@ -28,42 +28,8 @@ module.exports = function (w) {
       assertTrue(typeof w.handleDisconnected === 'function'));
     it('checkConnectionStatus is a function', () =>
       assertTrue(typeof w.checkConnectionStatus === 'function'));
-    it('getConnectionMaxRetries is a function', () =>
-      assertTrue(typeof w.getConnectionMaxRetries === 'function'));
-  });
-
-  describe('getConnectionMaxRetries Function', () => {
-    it('returns default value when no config', () => {
-      const origConfig = w.FPBState.config;
-      w.FPBState.config = null;
-      const result = w.getConnectionMaxRetries();
-      assertEqual(result, 10);
-      w.FPBState.config = origConfig;
-    });
-
-    it('returns default value when config has no transferMaxRetries', () => {
-      const origConfig = w.FPBState.config;
-      w.FPBState.config = {};
-      const result = w.getConnectionMaxRetries();
-      assertEqual(result, 10);
-      w.FPBState.config = origConfig;
-    });
-
-    it('returns config value when set', () => {
-      const origConfig = w.FPBState.config;
-      w.FPBState.config = { transferMaxRetries: 5 };
-      const result = w.getConnectionMaxRetries();
-      assertEqual(result, 5);
-      w.FPBState.config = origConfig;
-    });
-
-    it('returns default when transferMaxRetries is not a number', () => {
-      const origConfig = w.FPBState.config;
-      w.FPBState.config = { transferMaxRetries: 'invalid' };
-      const result = w.getConnectionMaxRetries();
-      assertEqual(result, 10);
-      w.FPBState.config = origConfig;
-    });
+    it('buildDiagnosticMessage is a function', () =>
+      assertTrue(typeof w.buildDiagnosticMessage === 'function'));
   });
 
   describe('handleConnected Function', () => {
@@ -301,12 +267,12 @@ module.exports = function (w) {
 
     it('shows alert on connection failure', async () => {
       w.FPBState.isConnected = false;
-      w.FPBState.config = { transferMaxRetries: 0 }; // No retries for faster test
       const mockTerm = new MockTerminal();
       w.FPBState.toolTerminal = mockTerm;
       setFetchResponse('/api/connect', {
         success: false,
-        message: 'Port busy',
+        error: 'Port busy',
+        error_code: 'device_busy',
       });
       browserGlobals.document.getElementById('portSelect').value =
         '/dev/ttyUSB0';
@@ -323,12 +289,10 @@ module.exports = function (w) {
       await w.toggleConnect();
 
       assertTrue(alertCalled);
-      assertTrue(alertMessage.includes('Connection failed'));
-      assertTrue(alertMessage.includes('Port busy'));
+      assertTrue(alertMessage.includes('busy'));
 
       global.alert = origAlert;
       w.FPBState.toolTerminal = null;
-      w.FPBState.config = null;
     });
 
     it('handles connection failure', async () => {
@@ -337,7 +301,7 @@ module.exports = function (w) {
       w.FPBState.toolTerminal = mockTerm;
       setFetchResponse('/api/connect', {
         success: false,
-        message: 'Port busy',
+        error: 'Port busy',
       });
       browserGlobals.document.getElementById('portSelect').value =
         '/dev/ttyUSB0';
@@ -526,82 +490,31 @@ module.exports = function (w) {
       w.FPBState.toolTerminal = null;
     });
 
-    it('retries connection on failure', async () => {
+    it('shows diagnostic alert with error_code', async () => {
       w.FPBState.isConnected = false;
-      w.FPBState.config = { transferMaxRetries: 1 };
       const mockTerm = new MockTerminal();
       w.FPBState.toolTerminal = mockTerm;
       browserGlobals.document.getElementById('portSelect').value =
-        '/dev/ttyUSB0';
+        '/dev/ttyACM0';
       browserGlobals.document.getElementById('baudrate').value = '115200';
+      setFetchResponse('/api/connect', {
+        success: false,
+        error: 'Permission denied',
+        error_code: 'permission_denied',
+      });
 
-      let callCount = 0;
-      const origFetch = browserGlobals.fetch;
-      browserGlobals.fetch = async (url, opts) => {
-        callCount++;
-        if (url.includes('/api/connect')) {
-          return {
-            ok: true,
-            json: async () => ({ success: false, message: 'Port busy' }),
-          };
-        }
-        return origFetch(url, opts);
+      let alertMessage = '';
+      const origAlert = global.alert;
+      global.alert = (msg) => {
+        alertMessage = msg;
       };
-      global.fetch = browserGlobals.fetch;
 
       await w.toggleConnect();
 
-      assertTrue(callCount >= 2); // At least initial + 1 retry
-      assertTrue(
-        mockTerm._writes.some((wr) => wr.msg && wr.msg.includes('Retry')),
-      );
-      browserGlobals.fetch = origFetch;
-      global.fetch = origFetch;
+      assertTrue(alertMessage.includes('permission'));
+
+      global.alert = origAlert;
       w.FPBState.toolTerminal = null;
-      w.FPBState.config = null;
-    });
-
-    it('succeeds on retry after initial failure', async () => {
-      w.FPBState.isConnected = false;
-      w.FPBState.config = { transferMaxRetries: 2 };
-      const mockTerm = new MockTerminal();
-      w.FPBState.toolTerminal = mockTerm;
-      w.FPBState.slotStates = Array(8)
-        .fill()
-        .map(() => ({ occupied: false }));
-      browserGlobals.document.getElementById('portSelect').value =
-        '/dev/ttyUSB0';
-      browserGlobals.document.getElementById('baudrate').value = '115200';
-
-      let callCount = 0;
-      const origFetch = browserGlobals.fetch;
-      browserGlobals.fetch = async (url, opts) => {
-        callCount++;
-        if (url.includes('/api/connect')) {
-          // Fail first, succeed second
-          if (callCount === 1) {
-            return {
-              ok: true,
-              json: async () => ({ success: false, message: 'Port busy' }),
-            };
-          }
-          return { ok: true, json: async () => ({ success: true }) };
-        }
-        if (url.includes('/api/fpb/info')) {
-          return { ok: true, json: async () => ({ success: true, slots: [] }) };
-        }
-        return origFetch(url, opts);
-      };
-      global.fetch = browserGlobals.fetch;
-
-      await w.toggleConnect();
-
-      assertTrue(w.FPBState.isConnected);
-      browserGlobals.fetch = origFetch;
-      global.fetch = origFetch;
-      w.FPBState.toolTerminal = null;
-      w.FPBState.config = null;
-      w.FPBState.isConnected = false;
     });
   });
 
