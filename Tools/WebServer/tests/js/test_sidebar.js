@@ -384,4 +384,50 @@ module.exports = function (w) {
       assertTrue(true);
     });
   });
+
+  describe('updateDisabledState Connection Params', () => {
+    it('disables connection params when connected', () => {
+      w.FPBState.isConnected = true;
+      w.updateDisabledState();
+      const ids = [
+        'portSelect',
+        'baudrate',
+        'customBaudrate',
+        'dataBits',
+        'parity',
+        'stopBits',
+        'flowControl',
+      ];
+      ids.forEach((id) => {
+        const el = browserGlobals.document.getElementById(id);
+        if (el) {
+          assertTrue(el.disabled, `${id} should be disabled when connected`);
+        }
+      });
+      w.FPBState.isConnected = false;
+    });
+
+    it('enables connection params when disconnected', () => {
+      w.FPBState.isConnected = false;
+      w.updateDisabledState();
+      const ids = [
+        'portSelect',
+        'baudrate',
+        'customBaudrate',
+        'dataBits',
+        'parity',
+        'stopBits',
+        'flowControl',
+      ];
+      ids.forEach((id) => {
+        const el = browserGlobals.document.getElementById(id);
+        if (el) {
+          assertTrue(
+            !el.disabled,
+            `${id} should be enabled when disconnected`,
+          );
+        }
+      });
+    });
+  });
 };

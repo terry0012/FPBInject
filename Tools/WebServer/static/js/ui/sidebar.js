@@ -81,6 +81,36 @@ function updateDisabledState() {
     }
   });
 
+  // Lock connection parameters when connected
+  const connectionParams = [
+    'portSelect',
+    'baudrate',
+    'customBaudrate',
+    'dataBits',
+    'parity',
+    'stopBits',
+    'flowControl',
+  ];
+  connectionParams.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.disabled = state.isConnected;
+      el.style.opacity = state.isConnected ? '0.5' : '1';
+    }
+  });
+
+  // Also disable the port refresh button when connected
+  const portControl = document
+    .getElementById('portSelect')
+    ?.closest('.config-item-control');
+  if (portControl) {
+    const refreshBtn = portControl.querySelector('button');
+    if (refreshBtn) {
+      refreshBtn.disabled = state.isConnected;
+      refreshBtn.style.opacity = state.isConnected ? '0.5' : '1';
+    }
+  }
+
   const deviceInfoContent = document.getElementById('deviceInfoContent');
   if (deviceInfoContent) {
     deviceInfoContent.style.opacity = state.isConnected ? '1' : '0.5';
