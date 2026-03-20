@@ -28,6 +28,8 @@ from typing import Any, Dict, Optional
 # Import from existing WebServer modules
 sys.path.insert(0, str(Path(__file__).parent))
 from fpb_inject import FPBInject  # noqa: E402
+from utils.port_lock import PortLock  # noqa: E402
+from cli.server_proxy import ServerProxy, DEFAULT_SERVER_URL  # noqa: E402
 
 try:
     import serial
@@ -101,6 +103,8 @@ class FPBCLI:
         tx_chunk_size: int = 0,
         tx_chunk_delay: float = 0.002,
         max_retries: int = 10,
+        direct: bool = False,
+        server_url: str = DEFAULT_SERVER_URL,
     ):
         self.verbose = verbose
         self.setup_logging()
@@ -113,8 +117,33 @@ class FPBCLI:
         self._device_state.transfer_max_retries = max_retries
         self._fpb = FPBInject(self._device_state)
 
+        # Proxy and lock state
+        self._proxy = None
+        self._port_lock = None
+
         # Connect to serial if port specified
         if port:
+            if not direct:
+                # Try proxy mode first
+                proxy = ServerProxy(base_url=server_url)
+                if proxy.is_server_running() and proxy.is_device_connected():
+                    self._proxy = proxy
+                    self._device_state.connected = True
+                    if self.verbose:
+                        logging.info(f"Using WebServer proxy mode ({server_url})")
+                    return
+
+            # Direct mode: acquire port lock then connect
+            lock = PortLock(port)
+            if not lock.acquire():
+                owner = lock.get_owner_pid()
+                raise FPBCLIError(
+                    f"Serial port {port} is locked by another process "
+                    f"(PID: {owner}). "
+                    f"Stop the other process or use a different port."
+                )
+            self._port_lock = lock
+
             self._device_state.connect(port, baudrate)
             if self.verbose:
                 logging.info(f"Connected to {port}")
@@ -355,6 +384,19 @@ class FPBCLI:
             if not source_path.exists():
                 raise FPBCLIError(f"Source file not found: {source_file}")
 
+            # Proxy mode: forward to WebServer
+            if self._proxy:
+                result = self._proxy.inject(
+                    target_func=target_func,
+                    source_file=source_file,
+                    elf_path=elf_path,
+                    compile_commands=compile_commands,
+                    patch_mode=patch_mode,
+                    comp=comp,
+                )
+                self.output_json(result)
+                return
+
             # Check if device is connected
             if not self._device_state.connected:
                 # Still provide useful info even without connection
@@ -433,6 +475,11 @@ class FPBCLI:
     def unpatch(self, comp: int = 0, all_patches: bool = False) -> None:
         """Remove patch from device"""
         try:
+            if self._proxy:
+                result = self._proxy.unpatch(comp=comp, all_patches=all_patches)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."
@@ -454,6 +501,11 @@ class FPBCLI:
     def info(self) -> None:
         """Get device FPB info"""
         try:
+            if self._proxy:
+                result = self._proxy.info()
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."
@@ -599,6 +651,11 @@ class FPBCLI:
     def mem_read(self, addr: int, length: int, fmt: str = "hex") -> None:
         """Read memory from device"""
         try:
+            if self._proxy:
+                result = self._proxy.mem_read(addr, length, fmt)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."
@@ -648,6 +705,11 @@ class FPBCLI:
     def mem_write(self, addr: int, data_hex: str) -> None:
         """Write memory to device"""
         try:
+            if self._proxy:
+                result = self._proxy.mem_write(addr, data_hex)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."
@@ -721,6 +783,9 @@ class FPBCLI:
     def cleanup(self):
         """Cleanup resources"""
         self._device_state.disconnect()
+        if self._port_lock:
+            self._port_lock.release()
+            self._port_lock = None
 
 
 def main():
@@ -791,6 +856,17 @@ Examples:
         type=int,
         default=10,
         help="Maximum retry attempts for file transfer operations (default: 10).",
+    )
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Force direct serial connection (skip WebServer proxy detection).",
+    )
+    parser.add_argument(
+        "--server-url",
+        type=str,
+        default=DEFAULT_SERVER_URL,
+        help=f"WebServer URL for proxy mode (default: {DEFAULT_SERVER_URL}).",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -957,6 +1033,8 @@ Examples:
         tx_chunk_size=args.tx_chunk_size,
         tx_chunk_delay=args.tx_chunk_delay,
         max_retries=args.max_retries,
+        direct=args.direct,
+        server_url=args.server_url,
     )
 
     try:
