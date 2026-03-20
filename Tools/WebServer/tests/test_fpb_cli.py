@@ -130,11 +130,13 @@ class TestFPBCLI(unittest.TestCase):
         cli.cleanup()
 
     @unittest.skipIf(not HAS_SERIAL, "pyserial not installed")
+    @patch("cli.fpb_cli.PortLock")
     @patch("cli.fpb_cli.serial.Serial")
-    def test_init_with_port(self, mock_serial):
-        """Test initialization with serial port"""
+    def test_init_with_port(self, mock_serial, mock_port_lock):
+        """Test initialization with serial port (direct mode)"""
         mock_serial.return_value = MagicMock()
-        cli = FPBCLI(port="/dev/ttyACM0", baudrate=9600)
+        mock_port_lock.return_value.acquire.return_value = True
+        cli = FPBCLI(port="/dev/ttyACM0", baudrate=9600, direct=True)
         self.assertTrue(cli._device_state.connected)
         cli.cleanup()
 
