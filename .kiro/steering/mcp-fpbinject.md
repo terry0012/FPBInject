@@ -4,13 +4,14 @@ inclusion: auto
 
 # FPBInject MCP Server
 
-项目内置 MCP server（`Tools/WebServer/fpb_mcp_server.py`），提供 20 个 tools 用于 ARM 固件分析和运行时注入。
+项目内置 MCP server（`Tools/WebServer/fpb_mcp_server.py`），提供 21 个 tools 用于 ARM 固件分析和运行时注入。
 
 ## Tools 一览
 
 | 类别 | Tool | 说明 |
 |------|------|------|
-| 离线 | `search` | 按名称搜索符号表 |
+| 离线 | `search` | 按名称搜索函数（最多 20 个结果） |
+| 离线 | `get_symbols` | 获取完整符号表（支持过滤和限制数量） |
 | 离线 | `analyze` | 分析函数（地址、签名、汇编行数） |
 | 离线 | `disasm` | 反汇编函数 |
 | 离线 | `decompile` | Ghidra 反编译（需安装） |
@@ -33,7 +34,7 @@ inclusion: auto
 
 ## 使用流程
 
-1. 用 `search` / `analyze` / `disasm` 了解目标函数
+1. 用 `search` / `get_symbols` / `analyze` / `disasm` 了解目标函数
 2. 编写补丁 `.c` 文件（必须含 `/* FPB_INJECT */` 标记）
 3. `compile_patch` 离线验证编译
 4. `connect` → `inject` → `serial_read` 观察效果

@@ -27,10 +27,16 @@ fpb_cli.py [OPTIONS] <command> [args...]
 
 Options:
   -v, --verbose              Enable verbose output
+  --version                  Show version
   --port, -p <device>        Serial port (e.g., /dev/ttyACM0, COM3)
   --baudrate, -b <rate>      Serial baudrate (default: 115200)
   --elf <path>               Path to ELF file (global default)
   --compile-commands <path>  Path to compile_commands.json
+  --tx-chunk-size <bytes>    TX chunk size for serial commands (0=disabled, default: 0)
+  --tx-chunk-delay <secs>    Delay between TX chunks in seconds (default: 0.005)
+  --max-retries <num>        Maximum retry attempts for file transfer (default: 10)
+  --direct                   Force direct serial connection (skip WebServer proxy detection)
+  --server-url <url>         WebServer URL for proxy mode (default: http://localhost:5500)
 ```
 
 ## Commands
@@ -105,11 +111,39 @@ fpb_cli.py search <elf_path> <pattern>
 }
 ```
 
-#### 6. `compile` - Compile patch source (offline validation)
+#### 6. `get-symbols` - Get all symbols from ELF
+
+More comprehensive than `search` — returns all symbol types via `nm`, with optional filtering.
+
+```bash
+fpb_cli.py get-symbols <elf_path> [--filter <pattern>] [--limit <num>]
+```
+
+**Options:**
+- `--filter <pattern>` — Case-insensitive substring filter (default: all symbols)
+- `--limit <num>` — Maximum results, 0 for unlimited (default: 0)
+
+**Output:**
+```json
+{
+  "success": true,
+  "count": 3,
+  "total": 150,
+  "symbols": [
+    {"name": "gpio_init", "addr": "0x08001000", "type": "func"},
+    {"name": "gpio_pin_map", "addr": "0x08002000", "type": "other"}
+  ]
+}
+```
+
+#### 7. `compile` - Compile patch source (offline validation)
 
 ```bash
 fpb_cli.py compile <source_file> --elf <elf> --compile-commands <path> [--addr <base_addr>]
 ```
+
+**Options:**
+- `--addr <base_addr>` — Base address for patch code (default: 0x20001000)
 
 **Output:**
 ```json
@@ -121,9 +155,25 @@ fpb_cli.py compile <source_file> --elf <elf> --compile-commands <path> [--addr <
 }
 ```
 
+### Connection Commands
+
+#### 8. `connect` - Connect to device
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 connect
+```
+
+Establishes a serial connection. Required before any online command when using `--direct` mode.
+
+#### 9. `disconnect` - Disconnect from device
+
+```bash
+fpb_cli.py disconnect
+```
+
 ### Online Commands (Device Required)
 
-#### 7. `info` - Get device FPB info
+#### 10. `info` - Get device FPB info
 
 ```bash
 fpb_cli.py --port /dev/ttyACM0 info
@@ -141,7 +191,7 @@ fpb_cli.py --port /dev/ttyACM0 info
 }
 ```
 
-#### 8. `inject` - Inject patch to device
+#### 11. `inject` - Inject patch to device
 
 ```bash
 fpb_cli.py --port <device> --elf <elf> --compile-commands <path> \
@@ -178,11 +228,134 @@ fpb_cli.py --port /dev/ttyACM0 --elf firmware.elf \
 }
 ```
 
-#### 9. `unpatch` - Remove patch
+#### 12. `unpatch` - Remove patch
 
 ```bash
 fpb_cli.py --port /dev/ttyACM0 unpatch --comp <slot>
 fpb_cli.py --port /dev/ttyACM0 unpatch --all
+```
+
+#### 13. `test-serial` - Test serial throughput
+
+3-phase probing to find optimal transfer parameters.
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 test-serial [options]
+
+Options:
+  --start-size <bytes>  Starting test size (default: 16)
+  --max-size <bytes>    Maximum test size (default: 4096)
+  --timeout <secs>      Timeout per test (default: 2.0)
+```
+
+### Serial I/O Commands (Device Required)
+
+#### 14. `serial-send` - Send data to device
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 serial-send <data> [options]
+
+Options:
+  --no-read          Don't read response after sending
+  --timeout <secs>   Response read timeout (default: 1.0)
+```
+
+**Output:**
+```json
+{
+  "success": true,
+  "sent": "ps",
+  "response": "  PID GROUP PRI POLICY   TYPE    NPX STATE   ..."
+}
+```
+
+> WARNING: Avoid sending `fl` commands directly — use `inject`/`unpatch`/`info` instead.
+
+#### 15. `serial-read` - Read serial output
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 serial-read [options]
+
+Options:
+  --timeout <secs>   How long to wait for data (default: 1.0)
+  --lines <num>      Max log lines to return (default: 50)
+```
+
+**Output:**
+```json
+{
+  "success": true,
+  "new_data": "Patched: pin=13 val=1\r\n",
+  "log": ["Patched: pin=13 val=1"],
+  "log_count": 1,
+  "total_buffered": 1
+}
+```
+
+### Memory Access Commands (Device Required)
+
+#### 16. `mem-read` - Read device memory
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-read <addr> <length> [--fmt hex|raw|u32]
+```
+
+**Example:**
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-read 0x20000000 64 --fmt hex
+```
+
+#### 17. `mem-write` - Write to device memory
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-write <addr> <hex_data>
+```
+
+**Example:**
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-write 0x20001000 DEADBEEF01020304
+```
+
+#### 18. `mem-dump` - Dump memory to file
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-dump <addr> <length> <output_file>
+```
+
+**Example:**
+```bash
+fpb_cli.py --port /dev/ttyACM0 mem-dump 0x20000000 4096 /tmp/ram.bin
+```
+
+### File Transfer Commands (Device Required)
+
+#### 19. `file-list` - List device directory
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 file-list [path]
+```
+
+Default path is `/`.
+
+#### 20. `file-stat` - Get file info
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 file-stat <path>
+```
+
+Returns size, modification time, and type (file/dir).
+
+#### 21. `file-download` - Download file from device
+
+```bash
+fpb_cli.py --port /dev/ttyACM0 file-download <remote_path> <local_path>
+```
+
+Transfers via chunked Base64 encoding with CRC verification.
+
+**Example:**
+```bash
+fpb_cli.py --port /dev/ttyACM0 file-download /data/log.bin /tmp/log.bin
 ```
 
 ## Typical Workflow

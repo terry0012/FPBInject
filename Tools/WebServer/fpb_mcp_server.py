@@ -173,6 +173,26 @@ def search(elf_path: str, pattern: str) -> dict:
 
 
 @mcp.tool()
+def get_symbols(
+    elf_path: str,
+    pattern: str = "",
+    limit: int = 0,
+) -> dict:
+    """Get all symbols from an ELF binary via nm.
+
+    Returns a complete symbol list with optional filtering and limiting.
+    More comprehensive than search() - includes all symbol types, not just functions.
+
+    Args:
+        elf_path: Path to the ELF firmware file
+        pattern: Filter pattern (case-insensitive substring match, default: "" for all)
+        limit: Maximum number of results (0 for unlimited, default: 0)
+    """
+    cli = _get_cli(elf_path=elf_path)
+    return _capture_cli_output(cli.get_symbols, elf_path, pattern, limit)
+
+
+@mcp.tool()
 def compile_patch(
     source_file: str,
     elf_path: str,
@@ -260,6 +280,7 @@ def inject(
     port: Optional[str] = None,
     patch_mode: str = "trampoline",
     comp: int = -1,
+    verify: bool = False,
 ) -> dict:
     """Inject a patch to replace a function on the device.
 
@@ -276,6 +297,7 @@ def inject(
         port: Serial port (uses existing connection if omitted)
         patch_mode: Patch mode - trampoline, debugmon, or direct (default: trampoline)
         comp: FPB slot number, -1 for auto-assign (default: -1)
+        verify: Verify patch after injection (default: False)
     """
     cli = _get_cli(port=port, elf_path=elf_path, compile_commands=compile_commands)
     return _capture_cli_output(
@@ -286,6 +308,7 @@ def inject(
         compile_commands,
         patch_mode,
         comp,
+        verify,
     )
 
 
@@ -311,6 +334,7 @@ def test_serial(
     port: Optional[str] = None,
     start_size: int = 16,
     max_size: int = 4096,
+    timeout: float = 2.0,
 ) -> dict:
     """Test serial throughput with 3-phase probing to find optimal parameters.
 
@@ -325,9 +349,10 @@ def test_serial(
         port: Serial port (uses existing connection if omitted)
         start_size: Starting test size in bytes for upload probe (default: 16)
         max_size: Maximum test size in bytes for upload probe (default: 4096)
+        timeout: Timeout per test in seconds (default: 2.0)
     """
     cli = _get_cli(port=port)
-    return _capture_cli_output(cli.test_serial, start_size, max_size)
+    return _capture_cli_output(cli.test_serial, start_size, max_size, timeout)
 
 
 # ============================================================
