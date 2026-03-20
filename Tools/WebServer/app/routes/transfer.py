@@ -518,6 +518,67 @@ def api_transfer_upload():
     return sse_response(progress_queue)
 
 
+@bp.route("/transfer/download-sync", methods=["POST"])
+def api_transfer_download_sync():
+    """
+    Download file from device (synchronous, no SSE).
+
+    JSON body:
+        remote_path: Source path on device
+
+    Returns:
+        JSON with base64-encoded file data
+    """
+    import base64
+
+    _, log_success, log_error, _, _ = _get_helpers()
+
+    data = request.json or {}
+    remote_path = data.get("remote_path")
+
+    if not remote_path:
+        return jsonify({"success": False, "error": "Remote path not specified"})
+
+    ft = _get_file_transfer()
+
+    def do_download():
+        ft.fpb.enter_fl_mode()
+        try:
+            success, stat = ft.fstat(remote_path)
+            if not success:
+                return {
+                    "success": False,
+                    "error": f"Failed to stat: {stat.get('error', 'unknown')}",
+                }
+
+            total_size = stat.get("size", 0)
+            if stat.get("type") == "dir":
+                return {"success": False, "error": "Cannot download directory"}
+            if total_size == 0:
+                return {"success": False, "error": "File is empty"}
+
+            success, file_data, msg = ft.download(remote_path)
+            if not success:
+                return {"success": False, "error": f"Download failed: {msg}"}
+
+            b64_data = base64.b64encode(file_data).decode("ascii")
+            return {
+                "success": True,
+                "data": b64_data,
+                "size": len(file_data),
+                "message": f"Downloaded {len(file_data)} bytes",
+            }
+        finally:
+            ft.fpb.exit_fl_mode()
+
+    result = _run_serial_op(do_download, timeout=120.0)
+
+    if "error" in result and result.get("error"):
+        return jsonify({"success": False, "error": result["error"]})
+
+    return jsonify(result)
+
+
 @bp.route("/transfer/download", methods=["POST"])
 def api_transfer_download():
     """

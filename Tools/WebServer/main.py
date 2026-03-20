@@ -37,6 +37,7 @@ from core.state import state
 from fpb_inject import serial_open
 from services.device_worker import start_worker
 from services.file_watcher_manager import restore_file_watcher
+from utils.port_lock import PortLock
 
 # Get the directory where this script is located
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -276,6 +277,14 @@ def restore_state():
         return
 
     device.ser = ser
+
+    # Acquire port lock for auto-connected port
+    lock = PortLock(device.port)
+    if lock.acquire():
+        state.port_lock = lock
+    else:
+        logger.warning(f"Could not acquire port lock for {device.port}")
+
     logger.info(f"Auto-connected to {device.port}")
 
 

@@ -28,6 +28,7 @@ from typing import Any, Dict, Optional
 # Import from existing WebServer modules
 sys.path.insert(0, str(Path(__file__).parent))
 from fpb_inject import FPBInject  # noqa: E402
+from core.state import DeviceStateBase  # noqa: E402
 from utils.port_lock import PortLock  # noqa: E402
 from cli.server_proxy import ServerProxy, DEFAULT_SERVER_URL  # noqa: E402
 
@@ -45,28 +46,12 @@ class FPBCLIError(Exception):
     pass
 
 
-class DeviceState:
+class DeviceState(DeviceStateBase):
     """Device state for CLI - can work with or without serial connection"""
 
     def __init__(self):
-        self.ser = None
-        self.elf_path = None
-        self.compile_commands_path = None
+        super().__init__()
         self.connected = False
-        self.ram_start = 0x20000000
-        self.ram_size = 0x10000  # 64KB default
-        self.inject_base = 0x20001000
-        self.cached_slots = None  # Cache for slot state
-        self.slot_update_id = 0
-        self.upload_chunk_size = 128  # Default chunk size for upload
-        self.download_chunk_size = 1024  # Default chunk size for download
-        self.serial_tx_fragment_size = 0  # 0 = disabled, >0 = fragment size for TX
-        self.serial_tx_fragment_delay = 0.002  # Delay between TX fragments (seconds)
-        self.transfer_max_retries = 10  # Max retries for file transfer
-
-    def add_tool_log(self, message):
-        """Stub for compatibility with FileTransfer log callbacks."""
-        pass
 
     def connect(self, port: str, baudrate: int = 115200) -> bool:
         """Connect to device via serial port"""
@@ -558,6 +543,11 @@ class FPBCLI:
         Uses x2 stepping to probe device's receive buffer limit.
         """
         try:
+            if self._proxy:
+                result = self._proxy.test_serial(start_size, max_size, timeout)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."
@@ -575,6 +565,11 @@ class FPBCLI:
     def file_list(self, path: str = "/") -> None:
         """List directory contents on device"""
         try:
+            if self._proxy:
+                result = self._proxy.file_list(path)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError("No device connected.")
             from core.file_transfer import FileTransfer
@@ -594,6 +589,11 @@ class FPBCLI:
     def file_stat(self, path: str) -> None:
         """Get file/directory stat on device"""
         try:
+            if self._proxy:
+                result = self._proxy.file_stat(path)
+                self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError("No device connected.")
             from core.file_transfer import FileTransfer
@@ -613,10 +613,33 @@ class FPBCLI:
     def file_download(self, remote_path: str, local_path: str) -> None:
         """Download a file from device to local path"""
         try:
+            if self._proxy:
+                result = self._proxy.file_download(remote_path)
+                if result.get("success") and result.get("data"):
+                    import base64
+
+                    data = base64.b64decode(result["data"])
+                    local_dir = os.path.dirname(local_path)
+                    if local_dir:
+                        os.makedirs(local_dir, exist_ok=True)
+                    with open(local_path, "wb") as f:
+                        f.write(data)
+                    self.output_json(
+                        {
+                            "success": True,
+                            "remote_path": remote_path,
+                            "local_path": local_path,
+                            "size": len(data),
+                            "message": f"Downloaded {len(data)} bytes via proxy",
+                        }
+                    )
+                else:
+                    self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError("No device connected.")
             from core.file_transfer import FileTransfer
-            import os
 
             ft = FileTransfer(
                 self._fpb,
@@ -746,6 +769,28 @@ class FPBCLI:
     def mem_dump(self, addr: int, length: int, output_file: str) -> None:
         """Dump memory region to binary file"""
         try:
+            if self._proxy:
+                result = self._proxy.mem_read(addr, length, fmt="raw")
+                if result.get("success") and result.get("data"):
+                    data = bytes.fromhex(result["data"])
+                    out_dir = os.path.dirname(output_file)
+                    if out_dir:
+                        os.makedirs(out_dir, exist_ok=True)
+                    with open(output_file, "wb") as f:
+                        f.write(data)
+                    self.output_json(
+                        {
+                            "success": True,
+                            "addr": f"0x{addr:08X}",
+                            "length": len(data),
+                            "output_file": output_file,
+                            "message": f"Dumped {len(data)} bytes to {output_file}",
+                        }
+                    )
+                else:
+                    self.output_json(result)
+                return
+
             if not self._device_state.connected:
                 raise FPBCLIError(
                     "No device connected. Use --port to specify serial port."

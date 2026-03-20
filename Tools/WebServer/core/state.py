@@ -59,17 +59,45 @@ class ToolLogHandler(logging.Handler):
             self.handleError(record)
 
 
-class DeviceState:
+class DeviceStateBase:
+    """Minimal device state interface shared by CLI and WebServer.
+
+    Contains the fields required by FPBInject and FileTransfer.
+    CLI and WebServer each extend this with their own extras.
+    """
+
+    def __init__(self):
+        self.ser = None
+        self.elf_path = None
+        self.compile_commands_path = None
+        self.ram_start = 0x20000000
+        self.ram_size = 0x10000  # 64KB default
+        self.inject_base = 0x20001000
+        self.cached_slots = None
+        self.slot_update_id = 0
+        self.upload_chunk_size = 128
+        self.download_chunk_size = 1024
+        self.serial_tx_fragment_size = 0
+        self.serial_tx_fragment_delay = 0.002
+        self.transfer_max_retries = 10
+
+    def add_tool_log(self, message):
+        """Override in subclasses to route log messages."""
+        pass
+
+
+class DeviceState(DeviceStateBase):
     """State container for FPBInject device."""
 
     def __init__(self):
+        super().__init__()
+
         # Initialize all persistent config from schema defaults
         defaults = get_config_defaults()
         for key, value in defaults.items():
             setattr(self, key, value)
 
         # Non-persistent runtime state
-        self.ser = None
         self.timeout = 2
 
         # Patch source settings

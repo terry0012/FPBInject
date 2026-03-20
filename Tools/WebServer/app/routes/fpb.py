@@ -402,6 +402,120 @@ def api_fpb_inject_multi():
     return jsonify({"success": success, **inject_result})
 
 
+@bp.route("/fpb/mem-read", methods=["POST"])
+def api_fpb_mem_read():
+    """Read device memory.
+
+    JSON body:
+        addr: Memory address (int)
+        length: Number of bytes to read (int)
+        fmt: Output format - "hex", "raw", or "u32" (default: "hex")
+    """
+    _, _, log_error, _, get_fpb_inject, _ = _get_helpers()
+
+    data = request.json or {}
+    addr = data.get("addr", 0)
+    length = data.get("length", 64)
+    fmt = data.get("fmt", "hex")
+
+    if isinstance(addr, str):
+        addr = int(addr, 0)
+
+    fpb = get_fpb_inject()
+
+    def do_mem_read():
+        fpb.enter_fl_mode()
+        try:
+            raw_data, msg = fpb.read_memory(addr, length)
+        finally:
+            fpb.exit_fl_mode()
+
+        if raw_data is None:
+            return {"success": False, "error": f"Memory read failed: {msg}"}
+
+        result = {
+            "success": True,
+            "addr": f"0x{addr:08X}",
+            "length": length,
+            "actual_length": len(raw_data),
+        }
+
+        if fmt == "hex":
+            lines = []
+            for i in range(0, len(raw_data), 16):
+                chunk = raw_data[i : i + 16]
+                hex_part = " ".join(f"{b:02X}" for b in chunk)
+                ascii_part = "".join(chr(b) if 0x20 <= b < 0x7F else "." for b in chunk)
+                lines.append(f"0x{addr + i:08X}: {hex_part:<48s} {ascii_part}")
+            result["hex_dump"] = "\n".join(lines)
+        elif fmt == "raw":
+            result["data"] = raw_data.hex()
+        elif fmt == "u32":
+            words = []
+            for i in range(0, len(raw_data) - 3, 4):
+                val = int.from_bytes(raw_data[i : i + 4], "little")
+                words.append(f"0x{val:08X}")
+            result["words"] = words
+
+        return result
+
+    result = _run_serial_op(do_mem_read, timeout=10.0)
+
+    if "error" in result and result.get("error"):
+        return jsonify({"success": False, "error": result["error"]})
+
+    return jsonify(result)
+
+
+@bp.route("/fpb/mem-write", methods=["POST"])
+def api_fpb_mem_write():
+    """Write data to device memory.
+
+    JSON body:
+        addr: Memory address (int)
+        data: Hex string of data to write (e.g. "DEADBEEF")
+    """
+    _, _, log_error, _, get_fpb_inject, _ = _get_helpers()
+
+    data = request.json or {}
+    addr = data.get("addr", 0)
+    data_hex = data.get("data", "")
+
+    if isinstance(addr, str):
+        addr = int(addr, 0)
+
+    try:
+        write_data = bytes.fromhex(data_hex)
+    except ValueError:
+        return jsonify({"success": False, "error": f"Invalid hex data: '{data_hex}'"})
+
+    fpb = get_fpb_inject()
+
+    def do_mem_write():
+        fpb.enter_fl_mode()
+        try:
+            success, error = fpb.write_memory(addr, write_data)
+        finally:
+            fpb.exit_fl_mode()
+
+        if not success:
+            return {"success": False, "error": f"Memory write failed: {error}"}
+
+        return {
+            "success": True,
+            "addr": f"0x{addr:08X}",
+            "length": len(write_data),
+            "message": f"Wrote {len(write_data)} bytes to 0x{addr:08X}",
+        }
+
+    result = _run_serial_op(do_mem_write, timeout=10.0)
+
+    if "error" in result and result.get("error"):
+        return jsonify({"success": False, "error": result["error"]})
+
+    return jsonify(result)
+
+
 @bp.route("/fpb/inject/multi/stream", methods=["POST"])
 def api_fpb_inject_multi_stream():
     """Multi-function injection with per-function + per-chunk SSE progress."""

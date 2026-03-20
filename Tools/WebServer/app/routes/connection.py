@@ -16,6 +16,7 @@ from flask import Blueprint, jsonify, request
 
 from core.state import state
 from services.device_worker import run_in_device_worker, start_worker, stop_worker
+from utils.port_lock import PortLock
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,13 @@ def api_connect():
     device.auto_connect = True
     state.save_config()
 
+    # Acquire port lock
+    lock = PortLock(port)
+    if lock.acquire():
+        state.port_lock = lock
+    else:
+        logger.warning(f"Could not acquire port lock for {port}")
+
     # Setup toolchain if configured
     fpb = get_fpb_inject()
     if device.toolchain_path:
@@ -167,6 +175,11 @@ def api_disconnect():
 
     run_in_device_worker(device, do_disconnect, timeout=2.0)
     stop_worker(device)
+
+    # Release port lock
+    if hasattr(state, "port_lock") and state.port_lock:
+        state.port_lock.release()
+        state.port_lock = None
 
     # Stop GDB integration
     from core.gdb_manager import stop_gdb

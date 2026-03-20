@@ -86,7 +86,18 @@ def _get_cli(
             _cli_instance._device_state.compile_commands_path = compile_commands
         # Connect if port given and not already connected
         if port and not _cli_instance._device_state.connected:
-            _cli_instance._device_state.connect(port, baudrate)
+            # Re-create CLI to trigger proxy detection
+            _cli_instance.cleanup()
+            _cli_instance = FPBCLI(
+                verbose=False,
+                port=port,
+                baudrate=baudrate,
+                elf_path=elf_path or _cli_instance._device_state.elf_path,
+                compile_commands=(
+                    compile_commands
+                    or _cli_instance._device_state.compile_commands_path
+                ),
+            )
     return _cli_instance
 
 

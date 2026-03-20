@@ -114,10 +114,16 @@ class TestGetCli(unittest.TestCase):
 
         mock_instance = MagicMock()
         mock_instance._device_state.connected = False
+        mock_instance._device_state.elf_path = "/old.elf"
+        mock_instance._device_state.compile_commands_path = None
         mock_cli_cls.return_value = mock_instance
         _get_cli()
+        # Second call with port re-creates CLI for proxy detection
         _get_cli(port="/dev/ttyACM0", baudrate=9600)
-        mock_instance._device_state.connect.assert_called_with("/dev/ttyACM0", 9600)
+        self.assertEqual(mock_cli_cls.call_count, 2)
+        second_call = mock_cli_cls.call_args
+        self.assertEqual(second_call.kwargs.get("port"), "/dev/ttyACM0")
+        self.assertEqual(second_call.kwargs.get("baudrate"), 9600)
 
 
 class TestSerialLog(unittest.TestCase):

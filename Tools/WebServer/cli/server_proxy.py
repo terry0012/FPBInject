@@ -148,3 +148,31 @@ class ServerProxy:
             "/api/fpb/mem-write",
             {"addr": addr, "data": data_hex},
         )
+
+    def test_serial(
+        self, start_size: int = 16, max_size: int = 4096, timeout: float = 2.0
+    ) -> dict:
+        """Test serial throughput via WebServer."""
+        return self._post(
+            "/api/fpb/test-serial",
+            {"start_size": start_size, "max_size": max_size, "timeout": timeout},
+        )
+
+    def file_list(self, path: str = "/") -> dict:
+        """List directory contents via WebServer."""
+        return self._get(f"/api/transfer/list?path={path}")
+
+    def file_stat(self, path: str) -> dict:
+        """Get file stat via WebServer."""
+        return self._get(f"/api/transfer/stat?path={path}")
+
+    def file_download(self, remote_path: str) -> dict:
+        """Download file via WebServer.
+
+        Uses the simple /api/transfer/download-sync endpoint which returns
+        JSON with base64-encoded data (no SSE streaming).
+        """
+        return self._post(
+            "/api/transfer/download-sync",
+            {"remote_path": remote_path},
+        )
