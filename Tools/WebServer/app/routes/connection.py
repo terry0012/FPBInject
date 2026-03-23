@@ -83,6 +83,8 @@ def api_connect():
     parity = data.get("parity", "none")
     stop_bits = data.get("stop_bits", 1)
     flow_control = data.get("flow_control", "none")
+    dtr = data.get("dtr_on_connect", False)
+    rts = data.get("rts_on_connect", False)
 
     if not port:
         return jsonify({"success": False, "error": "Port not specified"})
@@ -110,6 +112,8 @@ def api_connect():
             parity=parity,
             stop_bits=stop_bits,
             flow_control=flow_control,
+            dtr=dtr,
+            rts=rts,
         )
         if error:
             result["error"] = error
@@ -122,6 +126,8 @@ def api_connect():
             device.parity = parity
             device.stop_bits = stop_bits
             device.flow_control = flow_control
+            device.dtr_on_connect = dtr
+            device.rts_on_connect = rts
 
     if not run_in_device_worker(device, do_connect, timeout=5.0):
         return jsonify(

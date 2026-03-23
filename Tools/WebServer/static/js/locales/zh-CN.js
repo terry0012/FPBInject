@@ -68,6 +68,8 @@ window.i18nResources['zh-CN'] = {
       parity: '校验位',
       stop_bits: '停止位',
       flow_control: '流控制',
+      dtr_on_connect_hint: '连接时置位',
+      rts_on_connect_hint: '连接时置位',
       parity_none: '无',
       parity_even: 'Even',
       parity_odd: 'Odd',

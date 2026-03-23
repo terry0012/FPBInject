@@ -181,35 +181,29 @@ class TestSerialOpen(unittest.TestCase):
     """serial_open test"""
 
     @patch("utils.serial.serial.Serial")
-    def test_open_success(self, mock_serial):
+    def test_open_success(self, mock_serial_cls):
         """Test successfully opening port"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = True
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0", 115200, 1)
 
         self.assertIsInstance(ser, serial_utils.ThreadCheckedSerial)
         self.assertIsNone(error)
-        mock_serial.assert_called_with(
-            "/dev/ttyUSB0",
-            115200,
-            bytesize=8,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            xonxoff=False,
-            rtscts=False,
-            dsrdtr=False,
-            timeout=1,
-            write_timeout=1,
-        )
+        # Deferred open: Serial() called with no args, then attributes set
+        mock_serial_cls.assert_called_once_with()
+        self.assertEqual(mock_ser.port, "/dev/ttyUSB0")
+        self.assertEqual(mock_ser.baudrate, 115200)
+        self.assertEqual(mock_ser.bytesize, 8)
+        mock_ser.open.assert_called_once()
 
     @patch("utils.serial.serial.Serial")
-    def test_open_not_opened(self, mock_serial):
+    def test_open_not_opened(self, mock_serial_cls):
         """Test port failed to open"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = False
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0")
 
@@ -217,11 +211,11 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("Error opening", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_serial_exception(self, mock_serial):
+    def test_open_serial_exception(self, mock_serial_cls):
         """Test serial exception includes error code prefix"""
-        import serial
-
-        mock_serial.side_effect = serial.SerialException("Port busy")
+        mock_ser = Mock()
+        mock_ser.open.side_effect = serial.SerialException("Port busy")
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0")
 
@@ -230,14 +224,14 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("Port busy", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_permission_denied(self, mock_serial):
+    def test_open_permission_denied(self, mock_serial_cls):
         """Test permission denied error code"""
-        import serial
-
-        mock_serial.side_effect = serial.SerialException(
+        mock_ser = Mock()
+        mock_ser.open.side_effect = serial.SerialException(
             "[Errno 13] could not open port /dev/ttyACM0: "
             "[Errno 13] Permission denied: '/dev/ttyACM0'"
         )
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyACM0")
 
@@ -245,14 +239,14 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("[permission_denied]", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_device_not_found(self, mock_serial):
+    def test_open_device_not_found(self, mock_serial_cls):
         """Test device not found error code"""
-        import serial
-
-        mock_serial.side_effect = serial.SerialException(
+        mock_ser = Mock()
+        mock_ser.open.side_effect = serial.SerialException(
             "[Errno 2] could not open port /dev/ttyACM0: "
             "[Errno 2] No such file or directory: '/dev/ttyACM0'"
         )
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyACM0")
 
@@ -260,13 +254,13 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("[device_not_found]", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_device_busy(self, mock_serial):
+    def test_open_device_busy(self, mock_serial_cls):
         """Test device busy error code"""
-        import serial
-
-        mock_serial.side_effect = serial.SerialException(
+        mock_ser = Mock()
+        mock_ser.open.side_effect = serial.SerialException(
             "[Errno 16] Device or resource busy: '/dev/ttyACM0'"
         )
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyACM0")
 
@@ -274,9 +268,11 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("[device_busy]", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_generic_exception(self, mock_serial):
+    def test_open_generic_exception(self, mock_serial_cls):
         """Test generic exception includes error code prefix"""
-        mock_serial.side_effect = Exception("Unknown error")
+        mock_ser = Mock()
+        mock_ser.open.side_effect = Exception("Unknown error")
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0")
 
@@ -285,11 +281,11 @@ class TestSerialOpen(unittest.TestCase):
         self.assertIn("Unknown error", error)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_with_custom_serial_params(self, mock_serial):
+    def test_open_with_custom_serial_params(self, mock_serial_cls):
         """Test opening port with custom data_bits, parity, stop_bits, flow_control"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = True
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open(
             "/dev/ttyUSB0",
@@ -303,62 +299,103 @@ class TestSerialOpen(unittest.TestCase):
 
         self.assertIsInstance(ser, serial_utils.ThreadCheckedSerial)
         self.assertIsNone(error)
-        mock_serial.assert_called_with(
-            "/dev/ttyUSB0",
-            9600,
-            bytesize=7,
-            parity=serial.PARITY_EVEN,
-            stopbits=serial.STOPBITS_TWO,
-            xonxoff=False,
-            rtscts=True,
-            dsrdtr=False,
-            timeout=2.0,
-            write_timeout=2.0,
-        )
+        self.assertEqual(mock_ser.port, "/dev/ttyUSB0")
+        self.assertEqual(mock_ser.baudrate, 9600)
+        self.assertEqual(mock_ser.bytesize, 7)
+        self.assertEqual(mock_ser.parity, serial.PARITY_EVEN)
+        self.assertEqual(mock_ser.stopbits, serial.STOPBITS_TWO)
+        self.assertTrue(mock_ser.rtscts)
+        self.assertFalse(mock_ser.xonxoff)
+        mock_ser.open.assert_called_once()
 
     @patch("utils.serial.serial.Serial")
-    def test_open_with_xonxoff_flow(self, mock_serial):
+    def test_open_with_xonxoff_flow(self, mock_serial_cls):
         """Test opening port with XON/XOFF flow control"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = True
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0", flow_control="xonxoff")
 
         self.assertIsInstance(ser, serial_utils.ThreadCheckedSerial)
         self.assertIsNone(error)
-        call_kwargs = mock_serial.call_args
-        self.assertTrue(
-            call_kwargs[1]["xonxoff"]
-            if 1 in call_kwargs
-            else call_kwargs.kwargs["xonxoff"]
-        )
+        self.assertTrue(mock_ser.xonxoff)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_with_odd_parity(self, mock_serial):
+    def test_open_with_odd_parity(self, mock_serial_cls):
         """Test opening port with odd parity"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = True
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0", parity="odd")
 
         self.assertIsNone(error)
-        _, kwargs = mock_serial.call_args
-        self.assertEqual(kwargs["parity"], serial.PARITY_ODD)
+        self.assertEqual(mock_ser.parity, serial.PARITY_ODD)
 
     @patch("utils.serial.serial.Serial")
-    def test_open_with_unknown_parity_defaults_to_none(self, mock_serial):
+    def test_open_with_unknown_parity_defaults_to_none(self, mock_serial_cls):
         """Test opening port with unknown parity falls back to PARITY_NONE"""
         mock_ser = Mock()
         mock_ser.isOpen.return_value = True
-        mock_serial.return_value = mock_ser
+        mock_serial_cls.return_value = mock_ser
 
         ser, error = serial_utils.serial_open("/dev/ttyUSB0", parity="invalid")
 
         self.assertIsNone(error)
-        _, kwargs = mock_serial.call_args
-        self.assertEqual(kwargs["parity"], serial.PARITY_NONE)
+        self.assertEqual(mock_ser.parity, serial.PARITY_NONE)
+
+    @patch("utils.serial.serial.Serial")
+    def test_open_default_dtr_rts_off(self, mock_serial_cls):
+        """Test that DTR and RTS default to False (inactive) on connect"""
+        mock_ser = Mock()
+        mock_ser.isOpen.return_value = True
+        mock_serial_cls.return_value = mock_ser
+
+        ser, error = serial_utils.serial_open("/dev/ttyUSB0")
+
+        self.assertIsNone(error)
+        self.assertFalse(mock_ser.dtr)
+        self.assertFalse(mock_ser.rts)
+
+    @patch("utils.serial.serial.Serial")
+    def test_open_with_dtr_on(self, mock_serial_cls):
+        """Test opening port with DTR asserted"""
+        mock_ser = Mock()
+        mock_ser.isOpen.return_value = True
+        mock_serial_cls.return_value = mock_ser
+
+        ser, error = serial_utils.serial_open("/dev/ttyUSB0", dtr=True)
+
+        self.assertIsNone(error)
+        self.assertTrue(mock_ser.dtr)
+        self.assertFalse(mock_ser.rts)
+
+    @patch("utils.serial.serial.Serial")
+    def test_open_with_rts_on(self, mock_serial_cls):
+        """Test opening port with RTS asserted"""
+        mock_ser = Mock()
+        mock_ser.isOpen.return_value = True
+        mock_serial_cls.return_value = mock_ser
+
+        ser, error = serial_utils.serial_open("/dev/ttyUSB0", rts=True)
+
+        self.assertIsNone(error)
+        self.assertFalse(mock_ser.dtr)
+        self.assertTrue(mock_ser.rts)
+
+    @patch("utils.serial.serial.Serial")
+    def test_open_with_both_dtr_rts_on(self, mock_serial_cls):
+        """Test opening port with both DTR and RTS asserted"""
+        mock_ser = Mock()
+        mock_ser.isOpen.return_value = True
+        mock_serial_cls.return_value = mock_ser
+
+        ser, error = serial_utils.serial_open("/dev/ttyUSB0", dtr=True, rts=True)
+
+        self.assertIsNone(error)
+        self.assertTrue(mock_ser.dtr)
+        self.assertTrue(mock_ser.rts)
 
 
 class TestSerialWrite(unittest.TestCase):

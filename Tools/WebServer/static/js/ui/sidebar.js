@@ -90,6 +90,8 @@ function updateDisabledState() {
     'parity',
     'stopBits',
     'flowControl',
+    'dtrOnConnect',
+    'rtsOnConnect',
   ];
   connectionParams.forEach((id) => {
     const el = document.getElementById(id);

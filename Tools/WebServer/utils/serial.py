@@ -153,6 +153,8 @@ def serial_open(
     parity="none",
     stop_bits=1,
     flow_control="none",
+    dtr=False,
+    rts=False,
 ):
     """Open a serial port.
 
@@ -164,6 +166,8 @@ def serial_open(
         parity: Parity, none/even/odd/mark/space (default: none)
         stop_bits: Stop bits, 1/1.5/2 (default: 1)
         flow_control: Flow control, none/rtscts/dsrdtr/xonxoff (default: none)
+        dtr: Initial DTR (Data Terminal Ready) state on connect (default: False)
+        rts: Initial RTS (Request To Send) state on connect (default: False)
 
     Returns:
         tuple: (ThreadCheckedSerial, None) on success, or
@@ -184,18 +188,27 @@ def serial_open(
         2: serial.STOPBITS_TWO,
     }
     try:
-        ser = serial.Serial(
-            port,
-            baudrate,
-            bytesize=int(data_bits),
-            parity=PARITY_MAP.get(parity, serial.PARITY_NONE),
-            stopbits=STOPBITS_MAP.get(float(stop_bits), serial.STOPBITS_ONE),
-            xonxoff=(flow_control == "xonxoff"),
-            rtscts=(flow_control == "rtscts"),
-            dsrdtr=(flow_control == "dsrdtr"),
-            timeout=timeout,
-            write_timeout=timeout,
-        )
+        # Deferred open: set all parameters before opening the port.
+        # Many USB-serial chips (CH343G, CH340, etc.) use RTS/DTR for
+        # bootloader entry or reset. Setting RTS/DTR before open()
+        # ensures the desired initial pin state.
+        ser = serial.Serial()
+        ser.port = port
+        ser.baudrate = baudrate
+        ser.bytesize = int(data_bits)
+        ser.parity = PARITY_MAP.get(parity, serial.PARITY_NONE)
+        ser.stopbits = STOPBITS_MAP.get(float(stop_bits), serial.STOPBITS_ONE)
+        ser.xonxoff = flow_control == "xonxoff"
+        ser.rtscts = flow_control == "rtscts"
+        ser.dsrdtr = flow_control == "dsrdtr"
+        ser.timeout = timeout
+        ser.write_timeout = timeout
+
+        # Set initial RTS/DTR state before opening
+        ser.dtr = bool(dtr)
+        ser.rts = bool(rts)
+        ser.open()
+
         if not ser.isOpen():
             return None, f"Error opening serial port {port}"
         ser.reset_input_buffer()

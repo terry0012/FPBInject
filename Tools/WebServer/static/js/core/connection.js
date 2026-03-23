@@ -188,6 +188,10 @@ async function toggleConnect() {
     const parity = document.getElementById('parity')?.value || 'none';
     const stopBits = document.getElementById('stopBits')?.value || '1';
     const flowControl = document.getElementById('flowControl')?.value || 'none';
+    const dtrOnConnect =
+      document.getElementById('dtrOnConnect')?.checked || false;
+    const rtsOnConnect =
+      document.getElementById('rtsOnConnect')?.checked || false;
 
     // Check if port is selected
     if (!port) {
@@ -211,6 +215,8 @@ async function toggleConnect() {
           parity,
           stop_bits: parseFloat(stopBits),
           flow_control: flowControl,
+          dtr_on_connect: dtrOnConnect,
+          rts_on_connect: rtsOnConnect,
         }),
       });
       const data = await res.json();

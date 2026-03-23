@@ -68,6 +68,8 @@ window.i18nResources['en'] = {
       parity: 'Parity',
       stop_bits: 'Stop Bits',
       flow_control: 'Flow Control',
+      dtr_on_connect_hint: 'Assert on connect',
+      rts_on_connect_hint: 'Assert on connect',
       parity_none: 'None',
       parity_even: 'Even',
       parity_odd: 'Odd',

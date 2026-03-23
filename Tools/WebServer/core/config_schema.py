@@ -156,6 +156,24 @@ CONFIG_SCHEMA: List[ConfigItem] = [
         show_in_sidebar=False,
         order=70,
     ),
+    ConfigItem(
+        key="dtr_on_connect",
+        label="DTR",
+        group=ConfigGroup.CONNECTION,
+        config_type=ConfigType.BOOLEAN,
+        default=False,
+        show_in_sidebar=False,
+        order=80,
+    ),
+    ConfigItem(
+        key="rts_on_connect",
+        label="RTS",
+        group=ConfigGroup.CONNECTION,
+        config_type=ConfigType.BOOLEAN,
+        default=False,
+        show_in_sidebar=False,
+        order=90,
+    ),
     # === Project Paths ===
     ConfigItem(
         key="elf_path",

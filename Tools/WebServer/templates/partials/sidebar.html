@@ -101,6 +101,20 @@
                   <option value="xonxoff">XON/XOFF</option>
                 </select>
               </div>
+              <div class="config-item">
+                <label>DTR</label>
+                <label class="vscode-checkbox-label">
+                  <input type="checkbox" id="dtrOnConnect" class="vscode-checkbox" />
+                  <span data-i18n="connection.dtr_on_connect_hint">Assert on connect</span>
+                </label>
+              </div>
+              <div class="config-item">
+                <label>RTS</label>
+                <label class="vscode-checkbox-label">
+                  <input type="checkbox" id="rtsOnConnect" class="vscode-checkbox" />
+                  <span data-i18n="connection.rts_on_connect_hint">Assert on connect</span>
+                </label>
+              </div>
             </div>
           </details>
           <button id="connectBtn" class="vscode-btn" onclick="toggleConnect()" data-i18n="connection.connect">

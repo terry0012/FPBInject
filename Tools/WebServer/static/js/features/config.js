@@ -64,6 +64,14 @@ async function loadConfig() {
       const el = document.getElementById('flowControl');
       if (el) el.value = data.flow_control;
     }
+    if (data.dtr_on_connect !== undefined) {
+      const el = document.getElementById('dtrOnConnect');
+      if (el) el.checked = !!data.dtr_on_connect;
+    }
+    if (data.rts_on_connect !== undefined) {
+      const el = document.getElementById('rtsOnConnect');
+      if (el) el.checked = !!data.rts_on_connect;
+    }
 
     // Load all config values using schema
     await loadConfigValuesFromData(data);
