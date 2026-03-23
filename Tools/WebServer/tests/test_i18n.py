@@ -936,6 +936,9 @@ class TestHardcodedTextDetection(unittest.TestCase):
             "RTS/CTS",
             "DSR/DTR",
             "XON/XOFF",
+            # Serial pin names (universal abbreviations)
+            "DTR",
+            "RTS",
             # Numbers and symbols only
         ]
 
