@@ -6,5 +6,5 @@
 ############################################################################
 
 ifneq ($(CONFIG_FPBINJECT),)
-CONFIGURED_APPS += examples/FPBInject
+CONFIGURED_APPS += $(patsubst $(APPDIR)/%,%,$(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST)))))
 endif
