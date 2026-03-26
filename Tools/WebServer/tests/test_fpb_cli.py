@@ -1324,6 +1324,217 @@ class TestFPBCLIInfo(unittest.TestCase):
             "/data/old.bin", "/data/new.bin"
         )
 
+    # ===== mem_read tests =====
+
+    def test_mem_read_not_connected(self):
+        """Test mem_read when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 64)
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    def test_mem_read_success_hex(self):
+        """Test mem_read success with hex format"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (b"\x00\x01\x02\x03" * 4, "OK")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 16, "hex")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertIn("hex_dump", output)
+        self.assertEqual(output["actual_length"], 16)
+
+    def test_mem_read_success_raw(self):
+        """Test mem_read success with raw format"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (b"\xde\xad", "OK")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 2, "raw")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(output["data"], "dead")
+
+    def test_mem_read_success_u32(self):
+        """Test mem_read success with u32 format"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (
+            b"\x01\x00\x00\x00\x02\x00\x00\x00",
+            "OK",
+        )
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 8, "u32")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(len(output["words"]), 2)
+        self.assertEqual(output["words"][0], "0x00000001")
+
+    def test_mem_read_failure(self):
+        """Test mem_read when read_memory returns None"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (None, "timeout")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 64)
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    def test_mem_read_proxy(self):
+        """Test mem_read delegates to proxy"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.mem_read.return_value = {"success": True, "hex_dump": "00 01"}
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_read(0x20000000, 64, "hex")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.cli._proxy.mem_read.assert_called_once_with(0x20000000, 64, "hex")
+
+    # ===== mem_write tests =====
+
+    def test_mem_write_not_connected(self):
+        """Test mem_write when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_write(0x20000000, "DEADBEEF")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    def test_mem_write_success(self):
+        """Test mem_write success"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.write_memory.return_value = (True, None)
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_write(0x20000000, "DEADBEEF")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(output["length"], 4)
+
+    def test_mem_write_invalid_hex(self):
+        """Test mem_write with invalid hex data"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_write(0x20000000, "ZZZZ")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("Invalid hex data", output["error"])
+
+    def test_mem_write_failure(self):
+        """Test mem_write when write_memory fails"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.write_memory.return_value = (False, "bus fault")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_write(0x20000000, "DEADBEEF")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    def test_mem_write_proxy(self):
+        """Test mem_write delegates to proxy"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.mem_write.return_value = {"success": True, "message": "written"}
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_write(0x20000000, "DEADBEEF")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.cli._proxy.mem_write.assert_called_once_with(0x20000000, "DEADBEEF")
+
+    # ===== mem_dump tests =====
+
+    def test_mem_dump_not_connected(self):
+        """Test mem_dump when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_dump(0x20000000, 64, "/tmp/out.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    def test_mem_dump_success(self):
+        """Test mem_dump success"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (b"\x00\x01\x02\x03", "OK")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "dump.bin")
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.mem_dump(0x20000000, 4, out_path)
+            output = json.loads(f.getvalue())
+            self.assertTrue(output["success"])
+            self.assertEqual(output["length"], 4)
+            self.assertTrue(os.path.exists(out_path))
+            with open(out_path, "rb") as lf:
+                self.assertEqual(lf.read(), b"\x00\x01\x02\x03")
+
+    def test_mem_dump_failure(self):
+        """Test mem_dump when read_memory returns None"""
+        self.cli._device_state.connected = True
+        self.cli._fpb = MagicMock()
+        self.cli._fpb.read_memory.return_value = (None, "timeout")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_dump(0x20000000, 64, "/tmp/out.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    def test_mem_dump_proxy_success(self):
+        """Test mem_dump via proxy"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.mem_read.return_value = {
+            "success": True,
+            "data": "00010203",
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "dump.bin")
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.mem_dump(0x20000000, 4, out_path)
+            output = json.loads(f.getvalue())
+            self.assertTrue(output["success"])
+            self.assertTrue(os.path.exists(out_path))
+
+    def test_mem_dump_proxy_failure(self):
+        """Test mem_dump via proxy when read fails"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.mem_read.return_value = {
+            "success": False,
+            "error": "not connected",
+        }
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.mem_dump(0x20000000, 64, "/tmp/out.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
 
 class TestFPBCLIInject(unittest.TestCase):
     """Test inject command"""
@@ -1836,6 +2047,44 @@ class TestMainArgumentParsing(unittest.TestCase):
                 main()
                 mock_cli.file_rename.assert_called_once_with(
                     "/data/old.bin", "/data/new.bin"
+                )
+
+    def test_main_mem_read_command(self):
+        """Test main with mem-read command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "mem-read", "0x20000000", "64", "--fmt", "raw"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.mem_read.assert_called_once_with(0x20000000, 64, "raw")
+
+    def test_main_mem_write_command(self):
+        """Test main with mem-write command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "mem-write", "0x20000000", "DEADBEEF"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.mem_write.assert_called_once_with(0x20000000, "DEADBEEF")
+
+    def test_main_mem_dump_command(self):
+        """Test main with mem-dump command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "mem-dump", "0x20000000", "256", "/tmp/dump.bin"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.mem_dump.assert_called_once_with(
+                    0x20000000, 256, "/tmp/dump.bin"
                 )
 
 

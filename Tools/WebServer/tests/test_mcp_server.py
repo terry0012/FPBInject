@@ -786,5 +786,118 @@ class TestFileRenameTool(unittest.TestCase):
         self.assertEqual(result["new_path"], "/data/new.bin")
 
 
+class TestMemReadTool(unittest.TestCase):
+    """Test mem_read MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_mem_read_success(self, mock_cli_cls):
+        from fpb_mcp_server import mem_read
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_mem_read(addr, length, fmt):
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "addr": f"0x{addr:08X}",
+                        "length": length,
+                        "hex_dump": "00 01 02 03",
+                    }
+                )
+            )
+
+        mock_instance.mem_read = fake_mem_read
+        result = mem_read(addr="0x20000000", length=4)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["addr"], "0x20000000")
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_mem_read_with_fmt(self, mock_cli_cls):
+        from fpb_mcp_server import mem_read
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_mem_read(addr, length, fmt):
+            print(json.dumps({"success": True, "data": "deadbeef"}))
+
+        mock_instance.mem_read = fake_mem_read
+        result = mem_read(addr="0x20000000", length=4, fmt="raw")
+        self.assertTrue(result["success"])
+
+
+class TestMemWriteTool(unittest.TestCase):
+    """Test mem_write MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_mem_write_success(self, mock_cli_cls):
+        from fpb_mcp_server import mem_write
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_mem_write(addr, data_hex):
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "addr": f"0x{addr:08X}",
+                        "length": 4,
+                        "message": "Wrote 4 bytes",
+                    }
+                )
+            )
+
+        mock_instance.mem_write = fake_mem_write
+        result = mem_write(addr="0x20000000", data_hex="DEADBEEF")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["length"], 4)
+
+
+class TestMemDumpTool(unittest.TestCase):
+    """Test mem_dump MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_mem_dump_success(self, mock_cli_cls):
+        from fpb_mcp_server import mem_dump
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_mem_dump(addr, length, local_path):
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "addr": f"0x{addr:08X}",
+                        "length": length,
+                        "output_file": local_path,
+                    }
+                )
+            )
+
+        mock_instance.mem_dump = fake_mem_dump
+        result = mem_dump(addr="0x20000000", length=64, local_path="/tmp/mem.bin")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["length"], 64)
+
+
 if __name__ == "__main__":
     unittest.main()
