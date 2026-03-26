@@ -63,6 +63,7 @@ class _MockHTTPHandler(http.server.BaseHTTPRequestHandler):
 
     # Class-level response configuration
     responses = {}
+    sse_responses = {}
 
     def do_GET(self):
         path = self.path.split("?")[0]  # Strip query params
@@ -80,7 +81,17 @@ class _MockHTTPHandler(http.server.BaseHTTPRequestHandler):
         if content_length:
             self.rfile.read(content_length)
         path = self.path.split("?")[0]
-        if path in self.responses:
+        # SSE responses for streaming endpoints
+        if path in self.sse_responses:
+            sse_data = self.sse_responses[path]
+            body = ""
+            for event in sse_data:
+                body += f"data: {json.dumps(event)}\n\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.write(body.encode())
+        elif path in self.responses:
             resp_body = json.dumps(self.responses[path]).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -110,6 +121,21 @@ class TestServerProxyWithMockServer(unittest.TestCase):
             "/api/fpb/unpatch": {"success": True, "message": "unpatched"},
             "/api/fpb/mem-read": {"success": True, "hex_dump": "00 01 02"},
             "/api/fpb/mem-write": {"success": True, "message": "written"},
+            "/api/transfer/list": {"success": True, "path": "/data", "entries": []},
+            "/api/transfer/stat": {
+                "success": True,
+                "path": "/data/test.bin",
+                "stat": {"size": 512},
+            },
+            "/api/transfer/delete": {"success": True, "message": "OK"},
+            "/api/transfer/mkdir": {"success": True, "message": "OK"},
+            "/api/transfer/rename": {"success": True, "message": "OK"},
+        }
+        _MockHTTPHandler.sse_responses = {
+            "/api/transfer/upload": [
+                {"type": "progress", "uploaded": 5, "total": 5, "percent": 100.0},
+                {"type": "result", "success": True, "message": "Uploaded 5 bytes"},
+            ],
         }
         cls.server = http.server.HTTPServer(("127.0.0.1", 0), _MockHTTPHandler)
         cls.port = cls.server.server_address[1]
@@ -189,6 +215,128 @@ class TestServerProxyWithMockServer(unittest.TestCase):
         proxy = self._proxy()
         result = proxy.mem_write(0x20000000, "DEADBEEF")
         self.assertTrue(result["success"])
+
+    def test_file_list(self):
+        proxy = self._proxy()
+        result = proxy.file_list("/data")
+        self.assertTrue(result["success"])
+
+    def test_file_stat(self):
+        proxy = self._proxy()
+        result = proxy.file_stat("/data/test.bin")
+        self.assertTrue(result["success"])
+
+    def test_file_remove(self):
+        proxy = self._proxy()
+        result = proxy.file_remove("/data/old.bin")
+        self.assertTrue(result["success"])
+
+    def test_file_mkdir(self):
+        proxy = self._proxy()
+        result = proxy.file_mkdir("/data/newdir")
+        self.assertTrue(result["success"])
+
+    def test_file_rename(self):
+        proxy = self._proxy()
+        result = proxy.file_rename("/data/old.bin", "/data/new.bin")
+        self.assertTrue(result["success"])
+
+    def test_file_upload(self):
+        proxy = self._proxy()
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"hello")
+            tf.flush()
+            local_path = tf.name
+        try:
+            result = proxy.file_upload(local_path, "/data/test.bin")
+            self.assertTrue(result["success"])
+        finally:
+            os.unlink(local_path)
+
+
+class TestFileUploadEdgeCases(unittest.TestCase):
+    """Test file_upload proxy edge cases (no result event, invalid JSON)."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Start a mock server that returns SSE without a result event."""
+        _MockHTTPHandler.responses = {}
+        _MockHTTPHandler.sse_responses = {
+            "/api/transfer/upload": [
+                {"type": "progress", "uploaded": 3, "total": 3, "percent": 100.0},
+                # No "result" event
+            ],
+        }
+        cls.server = http.server.HTTPServer(("127.0.0.1", 0), _MockHTTPHandler)
+        cls.port = cls.server.server_address[1]
+        cls.base_url = f"http://127.0.0.1:{cls.port}"
+        cls.server_thread = threading.Thread(target=cls.server.serve_forever)
+        cls.server_thread.daemon = True
+        cls.server_thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+
+    def test_file_upload_no_result_event(self):
+        """file_upload returns fallback when SSE has no result event."""
+        proxy = ServerProxy(base_url=self.base_url)
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"abc")
+            tf.flush()
+            local_path = tf.name
+        try:
+            result = proxy.file_upload(local_path, "/data/test.bin")
+            self.assertTrue(result["success"])
+            self.assertEqual(result["message"], "Upload request sent")
+        finally:
+            os.unlink(local_path)
+
+
+class TestFileUploadInvalidSSE(unittest.TestCase):
+    """Test file_upload proxy with invalid SSE JSON."""
+
+    class _BadSSEHandler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length:
+                self.rfile.read(content_length)
+            # Return SSE with invalid JSON line
+            body = 'data: {not valid json}\n\ndata: {"type": "result", "success": true, "message": "OK"}\n\n'
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+        def log_message(self, format, *args):
+            pass
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = http.server.HTTPServer(("127.0.0.1", 0), cls._BadSSEHandler)
+        cls.port = cls.server.server_address[1]
+        cls.base_url = f"http://127.0.0.1:{cls.port}"
+        cls.server_thread = threading.Thread(target=cls.server.serve_forever)
+        cls.server_thread.daemon = True
+        cls.server_thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+
+    def test_file_upload_skips_invalid_json(self):
+        """file_upload skips invalid JSON lines and finds the valid result."""
+        proxy = ServerProxy(base_url=self.base_url)
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"data")
+            tf.flush()
+            local_path = tf.name
+        try:
+            result = proxy.file_upload(local_path, "/data/test.bin")
+            self.assertTrue(result["success"])
+            self.assertEqual(result["message"], "OK")
+        finally:
+            os.unlink(local_path)
 
 
 class TestServerProxyNoServer(unittest.TestCase):

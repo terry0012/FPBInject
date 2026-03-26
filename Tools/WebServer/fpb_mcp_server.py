@@ -581,6 +581,72 @@ def file_download(
     return _capture_cli_output(cli.file_download, remote_path, local_path)
 
 
+@mcp.tool()
+def file_upload(
+    local_path: str,
+    remote_path: str,
+    port: Optional[str] = None,
+) -> dict:
+    """Upload a local file to the device filesystem.
+
+    Transfers the file over serial using chunked Base64 encoding with CRC verification.
+
+    Args:
+        local_path: Source file path on local machine (e.g., "/tmp/firmware.bin")
+        remote_path: Destination path on device (e.g., "/data/firmware.bin")
+        port: Serial port (uses existing connection if omitted)
+    """
+    cli = _get_cli(port=port)
+    return _capture_cli_output(cli.file_upload, local_path, remote_path)
+
+
+@mcp.tool()
+def file_remove(
+    path: str,
+    port: Optional[str] = None,
+) -> dict:
+    """Remove a file on the device filesystem.
+
+    Args:
+        path: File path to remove on device (e.g., "/data/old.bin")
+        port: Serial port (uses existing connection if omitted)
+    """
+    cli = _get_cli(port=port)
+    return _capture_cli_output(cli.file_remove, path)
+
+
+@mcp.tool()
+def file_mkdir(
+    path: str,
+    port: Optional[str] = None,
+) -> dict:
+    """Create a directory on the device filesystem.
+
+    Args:
+        path: Directory path to create on device (e.g., "/data/logs")
+        port: Serial port (uses existing connection if omitted)
+    """
+    cli = _get_cli(port=port)
+    return _capture_cli_output(cli.file_mkdir, path)
+
+
+@mcp.tool()
+def file_rename(
+    old_path: str,
+    new_path: str,
+    port: Optional[str] = None,
+) -> dict:
+    """Rename a file or directory on the device filesystem.
+
+    Args:
+        old_path: Current path on device
+        new_path: New path on device
+        port: Serial port (uses existing connection if omitted)
+    """
+    cli = _get_cli(port=port)
+    return _capture_cli_output(cli.file_rename, old_path, new_path)
+
+
 # ============================================================
 # Memory Access Tools (device required)
 # ============================================================

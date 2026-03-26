@@ -1006,6 +1006,324 @@ class TestFPBCLIInfo(unittest.TestCase):
         finally:
             os.unlink(elf_path)
 
+    # ===== file_upload tests =====
+
+    def test_file_upload_not_connected(self):
+        """Test file_upload when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_upload("/tmp/local.bin", "/remote.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_upload_success(self, mock_ft_cls):
+        """Test file_upload success"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.upload.return_value = (True, "Uploaded 5 bytes to /remote.bin")
+        mock_ft_cls.return_value = mock_ft
+
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"hello")
+            tf.flush()
+            local_path = tf.name
+
+        try:
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.file_upload(local_path, "/remote.bin")
+            output = json.loads(f.getvalue())
+            self.assertTrue(output["success"])
+            self.assertEqual(output["size"], 5)
+            self.assertEqual(output["remote_path"], "/remote.bin")
+            self.assertEqual(output["local_path"], local_path)
+        finally:
+            os.unlink(local_path)
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_upload_failure(self, mock_ft_cls):
+        """Test file_upload when upload fails"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.upload.return_value = (False, "CRC mismatch")
+        mock_ft_cls.return_value = mock_ft
+
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"data")
+            tf.flush()
+            local_path = tf.name
+
+        try:
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.file_upload(local_path, "/remote.bin")
+            output = json.loads(f.getvalue())
+            self.assertFalse(output["success"])
+        finally:
+            os.unlink(local_path)
+
+    def test_file_upload_local_not_found(self):
+        """Test file_upload with nonexistent local file"""
+        self.cli._device_state.connected = True
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_upload("/nonexistent/file.bin", "/remote.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_upload_exception(self, mock_ft_cls):
+        """Test file_upload with exception"""
+        self.cli._device_state.connected = True
+        mock_ft_cls.side_effect = Exception("Transfer init error")
+
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"data")
+            tf.flush()
+            local_path = tf.name
+
+        try:
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.file_upload(local_path, "/remote.bin")
+            output = json.loads(f.getvalue())
+            self.assertFalse(output["success"])
+        finally:
+            os.unlink(local_path)
+
+    # ===== file_remove tests =====
+
+    def test_file_remove_not_connected(self):
+        """Test file_remove when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_remove("/data/old.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_remove_success(self, mock_ft_cls):
+        """Test file_remove success"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.fremove.return_value = (True, "OK")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_remove("/data/old.bin")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(output["path"], "/data/old.bin")
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_remove_failure(self, mock_ft_cls):
+        """Test file_remove when fremove fails"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.fremove.return_value = (False, "file not found")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_remove("/data/missing.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_remove_exception(self, mock_ft_cls):
+        """Test file_remove with exception"""
+        self.cli._device_state.connected = True
+        mock_ft_cls.side_effect = Exception("Transfer init error")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_remove("/data/old.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    # ===== file_mkdir tests =====
+
+    def test_file_mkdir_not_connected(self):
+        """Test file_mkdir when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_mkdir("/data/newdir")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_mkdir_success(self, mock_ft_cls):
+        """Test file_mkdir success"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.fmkdir.return_value = (True, "OK")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_mkdir("/data/newdir")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(output["path"], "/data/newdir")
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_mkdir_failure(self, mock_ft_cls):
+        """Test file_mkdir when fmkdir fails"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.fmkdir.return_value = (False, "permission denied")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_mkdir("/data/newdir")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_mkdir_exception(self, mock_ft_cls):
+        """Test file_mkdir with exception"""
+        self.cli._device_state.connected = True
+        mock_ft_cls.side_effect = Exception("Transfer init error")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_mkdir("/data/newdir")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    # ===== file_rename tests =====
+
+    def test_file_rename_not_connected(self):
+        """Test file_rename when not connected"""
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_rename("/data/old.bin", "/data/new.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+        self.assertIn("No device connected", output["error"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_rename_success(self, mock_ft_cls):
+        """Test file_rename success"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.frename.return_value = (True, "OK")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_rename("/data/old.bin", "/data/new.bin")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.assertEqual(output["old_path"], "/data/old.bin")
+        self.assertEqual(output["new_path"], "/data/new.bin")
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_rename_failure(self, mock_ft_cls):
+        """Test file_rename when frename fails"""
+        self.cli._device_state.connected = True
+        mock_ft = MagicMock()
+        mock_ft.frename.return_value = (False, "source not found")
+        mock_ft_cls.return_value = mock_ft
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_rename("/data/old.bin", "/data/new.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    @patch("core.file_transfer.FileTransfer")
+    def test_file_rename_exception(self, mock_ft_cls):
+        """Test file_rename with exception"""
+        self.cli._device_state.connected = True
+        mock_ft_cls.side_effect = Exception("Transfer init error")
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_rename("/data/old.bin", "/data/new.bin")
+        output = json.loads(f.getvalue())
+        self.assertFalse(output["success"])
+
+    # ===== file_upload via proxy tests =====
+
+    def test_file_upload_proxy(self):
+        """Test file_upload delegates to proxy when available"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.file_upload.return_value = {
+            "success": True,
+            "message": "Uploaded 5 bytes",
+        }
+
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"hello")
+            tf.flush()
+            local_path = tf.name
+
+        try:
+            f = io.StringIO()
+            with redirect_stdout(f):
+                self.cli.file_upload(local_path, "/remote.bin")
+            output = json.loads(f.getvalue())
+            self.assertTrue(output["success"])
+            self.cli._proxy.file_upload.assert_called_once_with(
+                local_path, "/remote.bin"
+            )
+        finally:
+            os.unlink(local_path)
+
+    def test_file_remove_proxy(self):
+        """Test file_remove delegates to proxy when available"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.file_remove.return_value = {
+            "success": True,
+            "message": "OK",
+        }
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_remove("/data/old.bin")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.cli._proxy.file_remove.assert_called_once_with("/data/old.bin")
+
+    def test_file_mkdir_proxy(self):
+        """Test file_mkdir delegates to proxy when available"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.file_mkdir.return_value = {
+            "success": True,
+            "message": "OK",
+        }
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_mkdir("/data/newdir")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.cli._proxy.file_mkdir.assert_called_once_with("/data/newdir")
+
+    def test_file_rename_proxy(self):
+        """Test file_rename delegates to proxy when available"""
+        self.cli._proxy = MagicMock()
+        self.cli._proxy.file_rename.return_value = {
+            "success": True,
+            "message": "OK",
+        }
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            self.cli.file_rename("/data/old.bin", "/data/new.bin")
+        output = json.loads(f.getvalue())
+        self.assertTrue(output["success"])
+        self.cli._proxy.file_rename.assert_called_once_with(
+            "/data/old.bin", "/data/new.bin"
+        )
+
 
 class TestFPBCLIInject(unittest.TestCase):
     """Test inject command"""
@@ -1432,6 +1750,93 @@ class TestMainArgumentParsing(unittest.TestCase):
                 call_kwargs = mock_cli_class.call_args.kwargs
                 self.assertEqual(call_kwargs.get("port"), "/dev/ttyACM0")
                 self.assertEqual(call_kwargs.get("baudrate"), 9600)
+
+    def test_main_file_list_command(self):
+        """Test main with file-list command"""
+        with patch("sys.argv", ["fpb_cli.py", "file-list", "/data"]):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_list.assert_called_once_with("/data")
+
+    def test_main_file_list_default_path(self):
+        """Test main with file-list command using default path"""
+        with patch("sys.argv", ["fpb_cli.py", "file-list"]):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_list.assert_called_once_with("/")
+
+    def test_main_file_stat_command(self):
+        """Test main with file-stat command"""
+        with patch("sys.argv", ["fpb_cli.py", "file-stat", "/data/test.bin"]):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_stat.assert_called_once_with("/data/test.bin")
+
+    def test_main_file_download_command(self):
+        """Test main with file-download command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "file-download", "/remote.bin", "/tmp/local.bin"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_download.assert_called_once_with(
+                    "/remote.bin", "/tmp/local.bin"
+                )
+
+    def test_main_file_upload_command(self):
+        """Test main with file-upload command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "file-upload", "/tmp/local.bin", "/remote.bin"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_upload.assert_called_once_with(
+                    "/tmp/local.bin", "/remote.bin"
+                )
+
+    def test_main_file_remove_command(self):
+        """Test main with file-remove command"""
+        with patch("sys.argv", ["fpb_cli.py", "file-remove", "/data/old.bin"]):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_remove.assert_called_once_with("/data/old.bin")
+
+    def test_main_file_mkdir_command(self):
+        """Test main with file-mkdir command"""
+        with patch("sys.argv", ["fpb_cli.py", "file-mkdir", "/data/newdir"]):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_mkdir.assert_called_once_with("/data/newdir")
+
+    def test_main_file_rename_command(self):
+        """Test main with file-rename command"""
+        with patch(
+            "sys.argv",
+            ["fpb_cli.py", "file-rename", "/data/old.bin", "/data/new.bin"],
+        ):
+            with patch("cli.fpb_cli.FPBCLI") as mock_cli_class:
+                mock_cli = MagicMock()
+                mock_cli_class.return_value = mock_cli
+                main()
+                mock_cli.file_rename.assert_called_once_with(
+                    "/data/old.bin", "/data/new.bin"
+                )
 
 
 class TestFPBCLISetupLogging(unittest.TestCase):

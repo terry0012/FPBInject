@@ -407,3 +407,68 @@ class ServerProxy:
             "/api/transfer/download-sync",
             {"remote_path": remote_path},
         )
+
+    def file_upload(self, local_path: str, remote_path: str) -> dict:
+        """Upload file to device via WebServer (multipart form)."""
+        import uuid
+        from urllib.request import Request, urlopen
+
+        url = self._build_url("/api/transfer/upload")
+        boundary = uuid.uuid4().hex
+        filename = os.path.basename(local_path)
+
+        with open(local_path, "rb") as f:
+            file_data = f.read()
+
+        # Build multipart/form-data body
+        lines = []
+        # remote_path field
+        lines.append(f"--{boundary}".encode())
+        lines.append(b'Content-Disposition: form-data; name="remote_path"')
+        lines.append(b"")
+        lines.append(remote_path.encode())
+        # file field
+        lines.append(f"--{boundary}".encode())
+        lines.append(
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"'.encode()
+        )
+        lines.append(b"Content-Type: application/octet-stream")
+        lines.append(b"")
+        lines.append(file_data)
+        lines.append(f"--{boundary}--".encode())
+        body = b"\r\n".join(lines)
+
+        req = Request(url, data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+
+        with urlopen(req, timeout=120) as resp:
+            resp_text = resp.read().decode()
+
+        # SSE endpoint - parse stream for final result
+        last_result = None
+        for line in resp_text.splitlines():
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "result":
+                        last_result = event
+                except Exception:
+                    pass
+        if last_result:
+            return last_result
+        return {"success": True, "message": "Upload request sent"}
+
+    def file_remove(self, path: str) -> dict:
+        """Delete file on device via WebServer."""
+        return self._post("/api/transfer/delete", {"path": path})
+
+    def file_mkdir(self, path: str) -> dict:
+        """Create directory on device via WebServer."""
+        return self._post("/api/transfer/mkdir", {"path": path})
+
+    def file_rename(self, old_path: str, new_path: str) -> dict:
+        """Rename file/directory on device via WebServer."""
+        return self._post(
+            "/api/transfer/rename",
+            {"old_path": old_path, "new_path": new_path},
+        )

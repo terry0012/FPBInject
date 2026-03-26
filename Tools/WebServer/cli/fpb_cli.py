@@ -676,6 +676,114 @@ class FPBCLI:
         except Exception as e:
             self.output_error(f"file_download failed: {str(e)}", e)
 
+    def file_upload(self, local_path: str, remote_path: str) -> None:
+        """Upload a local file to device"""
+        try:
+            if self._proxy:
+                result = self._proxy.file_upload(local_path, remote_path)
+                self.output_json(result)
+                return
+
+            self._require_device()
+            with open(local_path, "rb") as f:
+                data = f.read()
+
+            from core.file_transfer import FileTransfer
+
+            ft = FileTransfer(
+                self._fpb,
+                upload_chunk_size=self._device_state.upload_chunk_size,
+                download_chunk_size=self._device_state.download_chunk_size,
+                max_retries=self._device_state.transfer_max_retries,
+            )
+            success, msg = ft.upload(data, remote_path)
+            if not success:
+                raise FPBCLIError(f"Upload failed: {msg}")
+            self.output_json(
+                {
+                    "success": True,
+                    "local_path": local_path,
+                    "remote_path": remote_path,
+                    "size": len(data),
+                    "message": msg,
+                }
+            )
+        except Exception as e:
+            self.output_error(f"file_upload failed: {str(e)}", e)
+
+    def file_remove(self, path: str) -> None:
+        """Remove a file on device"""
+        try:
+            if self._proxy:
+                self.output_json(self._proxy.file_remove(path))
+                return
+
+            self._require_device()
+            from core.file_transfer import FileTransfer
+
+            ft = FileTransfer(
+                self._fpb,
+                upload_chunk_size=self._device_state.upload_chunk_size,
+                download_chunk_size=self._device_state.download_chunk_size,
+            )
+            success, msg = ft.fremove(path)
+            if not success:
+                raise FPBCLIError(f"Failed to remove: {msg}")
+            self.output_json({"success": True, "path": path, "message": msg})
+        except Exception as e:
+            self.output_error(f"file_remove failed: {str(e)}", e)
+
+    def file_mkdir(self, path: str) -> None:
+        """Create a directory on device"""
+        try:
+            if self._proxy:
+                self.output_json(self._proxy.file_mkdir(path))
+                return
+
+            self._require_device()
+            from core.file_transfer import FileTransfer
+
+            ft = FileTransfer(
+                self._fpb,
+                upload_chunk_size=self._device_state.upload_chunk_size,
+                download_chunk_size=self._device_state.download_chunk_size,
+            )
+            success, msg = ft.fmkdir(path)
+            if not success:
+                raise FPBCLIError(f"Failed to mkdir: {msg}")
+            self.output_json({"success": True, "path": path, "message": msg})
+        except Exception as e:
+            self.output_error(f"file_mkdir failed: {str(e)}", e)
+
+    def file_rename(self, old_path: str, new_path: str) -> None:
+        """Rename a file or directory on device"""
+        try:
+            if self._proxy:
+                self.output_json(self._proxy.file_rename(old_path, new_path))
+                return
+
+            self._require_device()
+            from core.file_transfer import FileTransfer
+
+            ft = FileTransfer(
+                self._fpb,
+                upload_chunk_size=self._device_state.upload_chunk_size,
+                download_chunk_size=self._device_state.download_chunk_size,
+            )
+            success, msg = ft.frename(old_path, new_path)
+            if not success:
+                raise FPBCLIError(f"Failed to rename: {msg}")
+            self.output_json(
+                {
+                    "success": True,
+                    "old_path": old_path,
+                    "new_path": new_path,
+                    "message": msg,
+                }
+            )
+        except Exception as e:
+            self.output_error(f"file_rename failed: {str(e)}", e)
+
     def mem_read(self, addr: int, length: int, fmt: str = "hex") -> None:
         """Read memory from device"""
         try:
@@ -983,6 +1091,27 @@ Examples:
 
   # Remove all patches (requires device)
   fpb_cli.py --port /dev/ttyACM0 unpatch --all
+
+  # List files on device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-list /data
+
+  # Get file info on device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-stat /data/log.bin
+
+  # Download file from device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-download /data/log.bin ./log.bin
+
+  # Upload file to device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-upload ./firmware.bin /data/firmware.bin
+
+  # Remove file on device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-remove /data/old.bin
+
+  # Create directory on device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-mkdir /data/logs
+
+  # Rename file on device (requires device)
+  fpb_cli.py --port /dev/ttyACM0 file-rename /data/old.bin /data/new.bin
         """,
     )
 
@@ -1209,6 +1338,61 @@ Examples:
         help="Max number of log lines to return (default: 50)",
     )
 
+    # file-list command (requires device)
+    file_list_parser = subparsers.add_parser(
+        "file-list", help="List directory contents on device (requires --port)"
+    )
+    file_list_parser.add_argument(
+        "path", nargs="?", default="/", help="Directory path on device (default: /)"
+    )
+
+    # file-stat command (requires device)
+    file_stat_parser = subparsers.add_parser(
+        "file-stat", help="Get file/directory info on device (requires --port)"
+    )
+    file_stat_parser.add_argument("path", help="File or directory path on device")
+
+    # file-download command (requires device)
+    file_download_parser = subparsers.add_parser(
+        "file-download", help="Download file from device (requires --port)"
+    )
+    file_download_parser.add_argument(
+        "remote_path", help="Source file path on device (e.g., /data/log.bin)"
+    )
+    file_download_parser.add_argument(
+        "local_path", help="Destination path on local machine (e.g., /tmp/log.bin)"
+    )
+
+    # file-upload command (requires device)
+    file_upload_parser = subparsers.add_parser(
+        "file-upload", help="Upload local file to device (requires --port)"
+    )
+    file_upload_parser.add_argument(
+        "local_path", help="Source file path on local machine"
+    )
+    file_upload_parser.add_argument(
+        "remote_path", help="Destination path on device (e.g., /data/log.bin)"
+    )
+
+    # file-remove command (requires device)
+    file_remove_parser = subparsers.add_parser(
+        "file-remove", help="Remove file on device (requires --port)"
+    )
+    file_remove_parser.add_argument("path", help="File path to remove on device")
+
+    # file-mkdir command (requires device)
+    file_mkdir_parser = subparsers.add_parser(
+        "file-mkdir", help="Create directory on device (requires --port)"
+    )
+    file_mkdir_parser.add_argument("path", help="Directory path to create on device")
+
+    # file-rename command (requires device)
+    file_rename_parser = subparsers.add_parser(
+        "file-rename", help="Rename file or directory on device (requires --port)"
+    )
+    file_rename_parser.add_argument("old_path", help="Current path on device")
+    file_rename_parser.add_argument("new_path", help="New path on device")
+
     # connect command
     subparsers.add_parser("connect", help="Connect to device (requires --port)")
 
@@ -1292,6 +1476,20 @@ Examples:
             cli.serial_send(args.data, not args.no_read, args.timeout)
         elif args.command == "serial-read":
             cli.serial_read(args.timeout, args.lines)
+        elif args.command == "file-list":
+            cli.file_list(args.path)
+        elif args.command == "file-stat":
+            cli.file_stat(args.path)
+        elif args.command == "file-download":
+            cli.file_download(args.remote_path, args.local_path)
+        elif args.command == "file-upload":
+            cli.file_upload(args.local_path, args.remote_path)
+        elif args.command == "file-remove":
+            cli.file_remove(args.path)
+        elif args.command == "file-mkdir":
+            cli.file_mkdir(args.path)
+        elif args.command == "file-rename":
+            cli.file_rename(args.old_path, args.new_path)
         elif args.command == "connect":
             cli.connect(args.port, args.baudrate)
         elif args.command == "disconnect":

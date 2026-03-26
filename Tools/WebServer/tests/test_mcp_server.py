@@ -669,5 +669,122 @@ class TestFileDownloadTool(unittest.TestCase):
         self.assertEqual(result["size"], 100)
 
 
+class TestFileUploadTool(unittest.TestCase):
+    """Test file_upload MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_file_upload_success(self, mock_cli_cls):
+        from fpb_mcp_server import file_upload
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_upload(local, remote):
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "local_path": local,
+                        "remote_path": remote,
+                        "size": 256,
+                        "message": "Uploaded 256 bytes",
+                    }
+                )
+            )
+
+        mock_instance.file_upload = fake_upload
+        result = file_upload(local_path="/tmp/fw.bin", remote_path="/data/fw.bin")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["size"], 256)
+        self.assertEqual(result["remote_path"], "/data/fw.bin")
+
+
+class TestFileRemoveTool(unittest.TestCase):
+    """Test file_remove MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_file_remove_success(self, mock_cli_cls):
+        from fpb_mcp_server import file_remove
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_remove(path):
+            print(json.dumps({"success": True, "path": path, "message": "OK"}))
+
+        mock_instance.file_remove = fake_remove
+        result = file_remove(path="/data/old.bin")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["path"], "/data/old.bin")
+
+
+class TestFileMkdirTool(unittest.TestCase):
+    """Test file_mkdir MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_file_mkdir_success(self, mock_cli_cls):
+        from fpb_mcp_server import file_mkdir
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_mkdir(path):
+            print(json.dumps({"success": True, "path": path, "message": "OK"}))
+
+        mock_instance.file_mkdir = fake_mkdir
+        result = file_mkdir(path="/data/logs")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["path"], "/data/logs")
+
+
+class TestFileRenameTool(unittest.TestCase):
+    """Test file_rename MCP tool"""
+
+    def setUp(self):
+        import fpb_mcp_server
+
+        fpb_mcp_server._cli_instance = None
+
+    @patch("fpb_mcp_server.FPBCLI")
+    def test_file_rename_success(self, mock_cli_cls):
+        from fpb_mcp_server import file_rename
+
+        mock_instance = MagicMock()
+        mock_cli_cls.return_value = mock_instance
+
+        def fake_rename(old, new):
+            print(
+                json.dumps(
+                    {
+                        "success": True,
+                        "old_path": old,
+                        "new_path": new,
+                        "message": "OK",
+                    }
+                )
+            )
+
+        mock_instance.file_rename = fake_rename
+        result = file_rename(old_path="/data/old.bin", new_path="/data/new.bin")
+        self.assertTrue(result["success"])
+        self.assertEqual(result["old_path"], "/data/old.bin")
+        self.assertEqual(result["new_path"], "/data/new.bin")
+
+
 if __name__ == "__main__":
     unittest.main()
