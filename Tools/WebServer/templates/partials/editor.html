@@ -54,6 +54,15 @@
   <!-- Global progress indicator -->
   <div id="injectProgress" class="inject-progress" style="display: none">
     <span id="injectProgressText" data-i18n="statusbar.injecting">Injecting...</span>
+    <button
+      id="injectCancelBtn"
+      class="inject-cancel-btn"
+      style="display: none"
+      onclick="cancelInject()"
+      title="Cancel injection"
+    >
+      ✕
+    </button>
     <div id="injectProgressFill" class="progress-fill"></div>
   </div>
 </div>

@@ -690,5 +690,181 @@ def _parse_sse_events(body):
     return events
 
 
+class TestFPBInjectCancelRoute(TestFPBRoutesBase):
+    """FPB inject/cancel route tests"""
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_cancel_sets_flag(self, mock_helpers):
+        """Test cancel endpoint sets the _inject_cancelled event."""
+        mock_helpers.return_value = make_mock_helpers(Mock())
+
+        # Clear the flag first
+        fpb._inject_cancelled.clear()
+        self.assertFalse(fpb._inject_cancelled.is_set())
+
+        response = self.client.post("/api/fpb/inject/cancel")
+        data = json.loads(response.data)
+
+        self.assertTrue(data["success"])
+        self.assertTrue(fpb._inject_cancelled.is_set())
+
+        # Clean up
+        fpb._inject_cancelled.clear()
+
+
+class TestMakeInjectProgressCallback(unittest.TestCase):
+    """Test _make_inject_progress_callback helper."""
+
+    def test_progress_has_speed_eta_elapsed(self):
+        """Progress events include speed, eta, elapsed fields."""
+        import queue as _queue
+
+        q = _queue.Queue()
+        fpb._inject_cancelled.clear()
+        cb = fpb._make_inject_progress_callback(q)
+
+        cb(50, 100)
+        cb(100, 100)
+
+        events = []
+        while not q.empty():
+            events.append(q.get_nowait())
+
+        self.assertEqual(len(events), 2)
+        for ev in events:
+            self.assertEqual(ev["type"], "progress")
+            self.assertIn("speed", ev)
+            self.assertIn("eta", ev)
+            self.assertIn("elapsed", ev)
+            self.assertIn("percent", ev)
+
+        # Last event should be 100%
+        self.assertEqual(events[-1]["percent"], 100.0)
+        self.assertEqual(events[-1]["uploaded"], 100)
+        self.assertEqual(events[-1]["total"], 100)
+
+    def test_cancel_raises_exception(self):
+        """Callback raises _InjectCancelled when cancel flag is set."""
+        import queue as _queue
+
+        q = _queue.Queue()
+        fpb._inject_cancelled.set()
+        cb = fpb._make_inject_progress_callback(q)
+
+        with self.assertRaises(fpb._InjectCancelled):
+            cb(50, 100)
+
+        # Clean up
+        fpb._inject_cancelled.clear()
+
+
+class TestInjectStreamCancel(TestFPBRoutesBase):
+    """Test inject/stream cancellation."""
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_inject_stream_cancelled(self, mock_helpers):
+        """Test inject_stream returns cancelled result when cancelled."""
+        mock_fpb = Mock()
+        mock_fpb.enter_fl_mode = Mock()
+        mock_fpb.exit_fl_mode = Mock()
+
+        def fake_inject(**kwargs):
+            cb = kwargs.get("progress_callback")
+            if cb:
+                # Simulate cancel during upload
+                fpb._inject_cancelled.set()
+                cb(50, 100)  # This should raise _InjectCancelled
+
+        mock_fpb.inject.side_effect = fake_inject
+        mock_helpers.return_value = make_mock_helpers(mock_fpb)
+
+        response = self.client.post(
+            "/api/fpb/inject/stream",
+            json={
+                "source_content": "/* FPB_INJECT */\nvoid f() {}",
+                "target_func": "original_f",
+            },
+        )
+
+        body = response.get_data(as_text=True)
+        events = _parse_sse_events(body)
+
+        result_evt = next((e for e in events if e["type"] == "result"), None)
+        self.assertIsNotNone(result_evt)
+        self.assertFalse(result_evt["success"])
+        self.assertTrue(result_evt.get("cancelled", False))
+
+        # Clean up
+        fpb._inject_cancelled.clear()
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_multi_stream_cancelled(self, mock_helpers):
+        """Test inject/multi/stream returns cancelled result when cancelled."""
+        mock_fpb = Mock()
+        mock_fpb.enter_fl_mode = Mock()
+        mock_fpb.exit_fl_mode = Mock()
+
+        def fake_inject_multi(**kwargs):
+            cb = kwargs.get("progress_callback")
+            if cb:
+                fpb._inject_cancelled.set()
+                cb(32, 64)  # Should raise _InjectCancelled
+
+        mock_fpb.inject_multi.side_effect = fake_inject_multi
+        mock_helpers.return_value = make_mock_helpers(mock_fpb)
+
+        response = self.client.post(
+            "/api/fpb/inject/multi/stream",
+            json={"source_content": "/* FPB_INJECT */\nvoid f() {}"},
+        )
+
+        body = response.get_data(as_text=True)
+        events = _parse_sse_events(body)
+
+        result_evt = next((e for e in events if e["type"] == "result"), None)
+        self.assertIsNotNone(result_evt)
+        self.assertFalse(result_evt["success"])
+        self.assertTrue(result_evt.get("cancelled", False))
+
+        # Clean up
+        fpb._inject_cancelled.clear()
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_inject_stream_progress_has_speed_fields(self, mock_helpers):
+        """Test inject_stream SSE progress events include speed/eta/elapsed."""
+        mock_fpb = Mock()
+        mock_fpb.enter_fl_mode = Mock()
+        mock_fpb.exit_fl_mode = Mock()
+
+        def fake_inject(**kwargs):
+            cb = kwargs.get("progress_callback")
+            if cb:
+                cb(50, 100)
+                cb(100, 100)
+            return True, {"slot": 0, "code_size": 64}
+
+        mock_fpb.inject.side_effect = fake_inject
+        mock_helpers.return_value = make_mock_helpers(mock_fpb)
+
+        response = self.client.post(
+            "/api/fpb/inject/stream",
+            json={
+                "source_content": "/* FPB_INJECT */\nvoid f() {}",
+                "target_func": "original_f",
+            },
+        )
+
+        body = response.get_data(as_text=True)
+        events = _parse_sse_events(body)
+
+        progress_events = [e for e in events if e["type"] == "progress"]
+        self.assertGreater(len(progress_events), 0)
+
+        for ev in progress_events:
+            self.assertIn("speed", ev)
+            self.assertIn("eta", ev)
+            self.assertIn("elapsed", ev)
+
+
 if __name__ == "__main__":
     unittest.main()

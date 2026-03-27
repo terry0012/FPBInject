@@ -14,6 +14,7 @@ import logging
 import os
 import queue
 import threading
+import time as _time
 
 from flask import Blueprint, jsonify, request
 
@@ -23,6 +24,9 @@ from services.device_worker import run_in_device_worker
 
 bp = Blueprint("fpb", __name__)
 logger = logging.getLogger(__name__)
+
+# Global inject cancel flag (mirrors _transfer_cancelled in transfer.py)
+_inject_cancelled = threading.Event()
 
 
 def _get_helpers():
@@ -516,6 +520,72 @@ def api_fpb_mem_write():
     return jsonify(result)
 
 
+class _InjectCancelled(Exception):
+    """Raised when injection is cancelled by user."""
+
+    pass
+
+
+def _make_inject_progress_callback(progress_queue):
+    """Create a progress callback with speed/ETA calculation.
+
+    Returns a callback ``(uploaded, total) -> None`` that pushes enriched
+    progress events (speed, eta, elapsed) to *progress_queue* and raises
+    :class:`_InjectCancelled` when the global cancel flag is set.
+    """
+    state_dict = {"start_time": 0.0, "last_time": 0.0, "last_bytes": 0}
+
+    def callback(uploaded, total):
+        # Check cancel flag
+        if _inject_cancelled.is_set():
+            raise _InjectCancelled("Inject cancelled by user")
+
+        now = _time.time()
+
+        # First chunk — initialise
+        if state_dict["start_time"] == 0:
+            state_dict["start_time"] = now
+            state_dict["last_time"] = now
+            state_dict["last_bytes"] = 0
+
+        elapsed = now - state_dict["start_time"]
+        interval = now - state_dict["last_time"]
+
+        # Update instantaneous speed every 100 ms to avoid jitter
+        if interval > 0.1:
+            speed = (uploaded - state_dict["last_bytes"]) / interval
+            state_dict["last_time"] = now
+            state_dict["last_bytes"] = uploaded
+        else:
+            speed = uploaded / elapsed if elapsed > 0 else 0
+
+        remaining = total - uploaded
+        eta = remaining / speed if speed > 0 else 0
+
+        progress_queue.put(
+            {
+                "type": "progress",
+                "uploaded": uploaded,
+                "total": total,
+                "percent": round((uploaded / total) * 100, 1) if total > 0 else 0,
+                "speed": round(speed, 1),
+                "eta": round(eta, 1),
+                "elapsed": round(elapsed, 1),
+            }
+        )
+
+    return callback
+
+
+@bp.route("/fpb/inject/cancel", methods=["POST"])
+def api_fpb_inject_cancel():
+    """Cancel an ongoing injection operation."""
+    log_info, _, _, _, _, _ = _get_helpers()
+    _inject_cancelled.set()
+    log_info("Inject cancel requested")
+    return jsonify({"success": True, "message": "Cancel requested"})
+
+
 @bp.route("/fpb/inject/multi/stream", methods=["POST"])
 def api_fpb_inject_multi_stream():
     """Multi-function injection with per-function + per-chunk SSE progress."""
@@ -531,15 +601,7 @@ def api_fpb_inject_multi_stream():
 
     progress_queue = queue.Queue()
 
-    def progress_callback(uploaded, total):
-        progress_queue.put(
-            {
-                "type": "progress",
-                "uploaded": uploaded,
-                "total": total,
-                "percent": round((uploaded / total) * 100, 1) if total > 0 else 0,
-            }
-        )
+    progress_callback = _make_inject_progress_callback(progress_queue)
 
     def status_callback(event):
         progress_queue.put({"type": "status", **event})
@@ -549,6 +611,7 @@ def api_fpb_inject_multi_stream():
         log_info(f"Starting multi-injection stream (mode: {patch_mode})")
 
         def do_inject_multi():
+            _inject_cancelled.clear()
             fpb.enter_fl_mode()
             try:
                 progress_queue.put({"type": "status", "stage": "compiling"})
@@ -568,6 +631,16 @@ def api_fpb_inject_multi_stream():
                     progress_queue.put({"type": "result", "success": True, **result})
                 else:
                     progress_queue.put({"type": "result", "success": False, **result})
+            except _InjectCancelled:
+                log_info("Multi-injection cancelled by user")
+                progress_queue.put(
+                    {
+                        "type": "result",
+                        "success": False,
+                        "error": "Cancelled",
+                        "cancelled": True,
+                    }
+                )
             finally:
                 fpb.exit_fl_mode()
                 progress_queue.put(None)
@@ -605,15 +678,7 @@ def api_fpb_inject_stream():
 
     progress_queue = queue.Queue()
 
-    def progress_callback(uploaded, total):
-        progress_queue.put(
-            {
-                "type": "progress",
-                "uploaded": uploaded,
-                "total": total,
-                "percent": round((uploaded / total) * 100, 1) if total > 0 else 0,
-            }
-        )
+    progress_callback = _make_inject_progress_callback(progress_queue)
 
     def inject_task():
         """Execute injection in device worker thread."""
@@ -621,6 +686,7 @@ def api_fpb_inject_stream():
         log_info(f"Starting injection for {target_func} (mode: {patch_mode})")
 
         def do_inject():
+            _inject_cancelled.clear()
             fpb.enter_fl_mode()
             try:
                 progress_queue.put({"type": "status", "stage": "compiling"})
@@ -640,6 +706,16 @@ def api_fpb_inject_stream():
                     progress_queue.put({"type": "result", "success": True, **result})
                 else:
                     progress_queue.put({"type": "result", "success": False, **result})
+            except _InjectCancelled:
+                log_info(f"Injection cancelled for {target_func}")
+                progress_queue.put(
+                    {
+                        "type": "result",
+                        "success": False,
+                        "error": "Cancelled",
+                        "cancelled": True,
+                    }
+                )
             finally:
                 fpb.exit_fl_mode()
                 progress_queue.put(None)

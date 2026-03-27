@@ -295,6 +295,28 @@ async function fpbInfo(showPopup = false) {
   }
 }
 
+/* ===========================
+   INJECT CANCEL SUPPORT
+   =========================== */
+let _injectAbortController = null;
+
+function cancelInject() {
+  if (_injectAbortController) {
+    _injectAbortController.abort();
+    fetch('/api/fpb/inject/cancel', { method: 'POST' }).catch(() => {});
+  }
+}
+
+/**
+ * Format speed in human-readable form (B/s, KB/s)
+ * Reuses formatSpeed from transfer.js if available, otherwise inline.
+ */
+function _formatInjectSpeed(bytesPerSec) {
+  if (typeof formatSpeed === 'function') return formatSpeed(bytesPerSec);
+  if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${Math.round(bytesPerSec)} B/s`;
+}
+
 async function fpbInjectMulti() {
   const state = window.FPBState;
   if (!state.isConnected) {
@@ -331,6 +353,11 @@ async function fpbInjectMulti() {
     progressFill.style.width = '5%';
     progressFill.style.background = '';
   }
+
+  // Show cancel button
+  const cancelBtn = document.getElementById('injectCancelBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+  _injectAbortController = new AbortController();
 
   try {
     const patchMode =
@@ -379,18 +406,14 @@ async function fpbInjectMulti() {
           const overall = funcBase + (uploadPercent / 100) * funcWeight;
           if (progressFill) progressFill.style.width = `${overall}%`;
           if (progressText) {
-            progressText.textContent = t(
-              'statusbar.uploading_func',
-              `Uploading (${currentIndex + 1}/${totalFuncs}) ${uploadPercent.toFixed(0)}%`,
-              {
-                current: currentIndex + 1,
-                total: totalFuncs,
-                percent: uploadPercent.toFixed(0),
-              },
-            );
+            const speedStr =
+              ev.speed > 0 ? `  ${_formatInjectSpeed(ev.speed)}` : '';
+            const etaStr = ev.eta > 0 ? `  ETA ${ev.eta.toFixed(1)}s` : '';
+            progressText.textContent = `(${currentIndex + 1}/${totalFuncs}) ${uploadPercent.toFixed(0)}%${speedStr}${etaStr}`;
           }
         },
       },
+      _injectAbortController,
     );
 
     if (data && data.success) {
@@ -403,6 +426,12 @@ async function fpbInjectMulti() {
       displayAutoInjectStats(data, 'multi');
       await fpbInfo();
       hideProgress();
+    } else if (data && data.cancelled) {
+      log.warn('Injection cancelled');
+      if (progressFill) progressFill.style.background = '#ff9800';
+      if (progressText)
+        progressText.textContent = t('statusbar.cancelled', 'Cancelled');
+      hideProgress(2000);
     } else {
       log.error(`Multi-inject failed: ${data?.error || 'Unknown error'}`);
       if (progressFill) progressFill.style.background = '#f44336';
@@ -410,9 +439,20 @@ async function fpbInjectMulti() {
       hideProgress(3000);
     }
   } catch (e) {
-    log.error(`Multi-inject error: ${e}`);
-    if (progressFill) progressFill.style.background = '#f44336';
-    hideProgress(3000);
+    if (e.name === 'AbortError') {
+      log.warn('Injection cancelled');
+      if (progressFill) progressFill.style.background = '#ff9800';
+      if (progressText)
+        progressText.textContent = t('statusbar.cancelled', 'Cancelled');
+      hideProgress(2000);
+    } else {
+      log.error(`Multi-inject error: ${e}`);
+      if (progressFill) progressFill.style.background = '#f44336';
+      hideProgress(3000);
+    }
+  } finally {
+    _injectAbortController = null;
+    if (cancelBtn) cancelBtn.style.display = 'none';
   }
 }
 
@@ -421,3 +461,4 @@ window.fpbPing = fpbPing;
 window.fpbTestSerial = fpbTestSerial;
 window.fpbInfo = fpbInfo;
 window.fpbInjectMulti = fpbInjectMulti;
+window.cancelInject = cancelInject;
