@@ -638,6 +638,16 @@ class FPBInject:
         result["total_time"] = round(time.time() - total_start, 2)
         result["patch_mode"] = patch_mode
 
+        # Overhead = serial ops not in compile/alloc/upload/patch
+        # (info, find_slot, symbol resolution, etc.)
+        accounted = (
+            result["compile_time"]
+            + result["alloc_time"]
+            + result["upload_time"]
+            + result["patch_time"]
+        )
+        result["overhead_time"] = round(result["total_time"] - accounted, 2)
+
         self.device.inject_active = True
         self.device.last_inject_target = target_func
         self.device.last_inject_func = found_inject_func[0]
@@ -742,6 +752,7 @@ class FPBInject:
         total_alloc_time = 0
         total_upload_time = 0
         total_patch_time = 0
+        total_overhead_time = 0
         total_code_size = 0
 
         for idx, (target_func, inject_func) in enumerate(injection_targets):
@@ -794,6 +805,7 @@ class FPBInject:
                 total_alloc_time += inj_result.get("alloc_time", 0)
                 total_upload_time += inj_result.get("upload_time", 0)
                 total_patch_time += inj_result.get("patch_time", 0)
+                total_overhead_time += inj_result.get("overhead_time", 0)
                 total_code_size += inj_result.get("code_size", 0)
                 logger.info(
                     f"Injected {target_func} -> {inject_func} @ slot {inj_result.get('slot', '?')}"
@@ -805,6 +817,7 @@ class FPBInject:
         result["alloc_time"] = round(total_alloc_time, 2)
         result["upload_time"] = round(total_upload_time, 2)
         result["patch_time"] = round(total_patch_time, 2)
+        result["overhead_time"] = round(total_overhead_time, 2)
         result["code_size"] = total_code_size
         result["total_time"] = round(time.time() - total_start, 2)
         result["patch_mode"] = patch_mode

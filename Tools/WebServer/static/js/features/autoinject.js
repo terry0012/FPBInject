@@ -301,6 +301,10 @@ function displayAutoInjectStats(result, targetFunc) {
   if (patchTime > 0) {
     writeToOutput(`Patch time:    ${patchTime.toFixed(2)}s`, 'info');
   }
+  const overheadTime = result.overhead_time || 0;
+  if (overheadTime > 0) {
+    writeToOutput(`Overhead:      ${overheadTime.toFixed(2)}s`, 'info');
+  }
   writeToOutput(`Code size:     ${codeSize} bytes`, 'info');
   writeToOutput(`Total time:    ${totalTime.toFixed(2)}s`, 'info');
   writeToOutput(`Injection mode: ${patchMode}`, 'success');
