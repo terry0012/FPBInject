@@ -289,10 +289,18 @@ function displayAutoInjectStats(result, targetFunc) {
   }
 
   writeToOutput(`Compile time:  ${compileTime.toFixed(2)}s`, 'info');
+  const allocTime = result.alloc_time || 0;
+  if (allocTime > 0) {
+    writeToOutput(`Alloc time:    ${allocTime.toFixed(2)}s`, 'info');
+  }
   writeToOutput(
     `Upload time:   ${uploadTime.toFixed(2)}s (${uploadSpeed} B/s)`,
     'info',
   );
+  const patchTime = result.patch_time || 0;
+  if (patchTime > 0) {
+    writeToOutput(`Patch time:    ${patchTime.toFixed(2)}s`, 'info');
+  }
   writeToOutput(`Code size:     ${codeSize} bytes`, 'info');
   writeToOutput(`Total time:    ${totalTime.toFixed(2)}s`, 'info');
   writeToOutput(`Injection mode: ${patchMode}`, 'success');

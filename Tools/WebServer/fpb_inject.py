@@ -476,7 +476,9 @@ class FPBInject:
         """Perform full injection workflow."""
         result = {
             "compile_time": 0,
+            "alloc_time": 0,
             "upload_time": 0,
+            "patch_time": 0,
             "total_time": 0,
             "code_size": 0,
             "inject_func": None,
@@ -536,6 +538,9 @@ class FPBInject:
         code_size = len(data)
         alloc_size = code_size + 8
 
+        compile_time_pass1 = time.time() - compile_start
+
+        alloc_start = time.time()
         raw_addr, error = self.alloc(alloc_size)
         if error or raw_addr is None:
             return False, {"error": f"Alloc failed: {error or 'No address returned'}"}
@@ -543,7 +548,9 @@ class FPBInject:
         aligned_addr = (raw_addr + 7) & ~7
         align_offset = aligned_addr - raw_addr
         base_addr = aligned_addr
+        result["alloc_time"] = round(time.time() - alloc_start, 2)
 
+        compile_start2 = time.time()
         data, inject_symbols, error = self.compile_inject(
             source_content=source_content,
             base_addr=base_addr,
@@ -558,7 +565,7 @@ class FPBInject:
         if error:
             return False, {"error": error}
 
-        compile_time = time.time() - compile_start
+        compile_time = compile_time_pass1 + (time.time() - compile_start2)
         result["compile_time"] = round(compile_time, 2)
         result["code_size"] = len(data)
 
@@ -616,12 +623,14 @@ class FPBInject:
 
         patch_addr = found_inject_func[1] | 1
 
+        patch_start = time.time()
         if patch_mode == "trampoline":
             success, msg = self.tpatch(actual_comp, target_addr, patch_addr)
         elif patch_mode == "debugmon":
             success, msg = self.dpatch(actual_comp, target_addr, patch_addr)
         else:
             success, msg = self.patch(actual_comp, target_addr, patch_addr)
+        result["patch_time"] = round(time.time() - patch_start, 2)
 
         if not success:
             return False, {"error": f"Patch failed: {msg}"}
@@ -662,7 +671,9 @@ class FPBInject:
         """
         result = {
             "compile_time": 0,
+            "alloc_time": 0,
             "upload_time": 0,
+            "patch_time": 0,
             "total_time": 0,
             "code_size": 0,
             "injections": [],
@@ -728,7 +739,9 @@ class FPBInject:
             return False, {"error": "No valid injection targets found"}
 
         total_compile_time = 0
+        total_alloc_time = 0
         total_upload_time = 0
+        total_patch_time = 0
         total_code_size = 0
 
         for idx, (target_func, inject_func) in enumerate(injection_targets):
@@ -778,7 +791,9 @@ class FPBInject:
                 )
             else:
                 total_compile_time += inj_result.get("compile_time", 0)
+                total_alloc_time += inj_result.get("alloc_time", 0)
                 total_upload_time += inj_result.get("upload_time", 0)
+                total_patch_time += inj_result.get("patch_time", 0)
                 total_code_size += inj_result.get("code_size", 0)
                 logger.info(
                     f"Injected {target_func} -> {inject_func} @ slot {inj_result.get('slot', '?')}"
@@ -787,7 +802,9 @@ class FPBInject:
             result["injections"].append(injection_entry)
 
         result["compile_time"] = round(total_compile_time, 2)
+        result["alloc_time"] = round(total_alloc_time, 2)
         result["upload_time"] = round(total_upload_time, 2)
+        result["patch_time"] = round(total_patch_time, 2)
         result["code_size"] = total_code_size
         result["total_time"] = round(time.time() - total_start, 2)
         result["patch_mode"] = patch_mode
