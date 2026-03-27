@@ -678,7 +678,7 @@ body.resizing-panel .sash {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--vscode-badge-bg);
+  background: transparent;
   flex-shrink: 0;
   cursor: pointer;
   border: 2px solid var(--vscode-input-border);
