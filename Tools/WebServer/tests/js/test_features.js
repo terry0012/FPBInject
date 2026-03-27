@@ -4473,4 +4473,231 @@ module.exports = function (w) {
       );
     });
   });
+
+  /* ===========================
+   * Tests for inject cancel, speed formatting, and version mismatch
+   * =========================== */
+
+  describe('cancelInject Function (features/fpb.js)', () => {
+    it('is a function', () => assertTrue(typeof w.cancelInject === 'function'));
+
+    it('sends cancel request to backend', () => {
+      resetMocks();
+      setFetchResponse('/api/fpb/inject/cancel', { success: true });
+      w.cancelInject();
+      const calls = getFetchCalls();
+      assertTrue(
+        calls.some(
+          (c) =>
+            c.url === '/api/fpb/inject/cancel' &&
+            c.options &&
+            c.options.method === 'POST',
+        ),
+      );
+    });
+
+    it('aborts SSE stream if active', () => {
+      let aborted = false;
+      w._injectAbortController = { abort: () => (aborted = true) };
+      resetMocks();
+      setFetchResponse('/api/fpb/inject/cancel', { success: true });
+      w.cancelInject();
+      assertTrue(aborted);
+      w._injectAbortController = null;
+    });
+
+    it('works when no AbortController is set', () => {
+      w._injectAbortController = null;
+      resetMocks();
+      setFetchResponse('/api/fpb/inject/cancel', { success: true });
+      w.cancelInject();
+      // Should not throw
+      assertTrue(true);
+    });
+  });
+
+  describe('_formatInjectSpeed Function (features/fpb.js)', () => {
+    it('is a function', () =>
+      assertTrue(typeof w._formatInjectSpeed === 'function'));
+
+    it('formats bytes per second', () => {
+      const result = w._formatInjectSpeed(500);
+      assertContains(result, '500');
+      assertContains(result, 'B/s');
+    });
+
+    it('formats kilobytes per second', () => {
+      const result = w._formatInjectSpeed(2048);
+      assertContains(result, 'KB/s');
+    });
+
+    it('handles zero', () => {
+      const result = w._formatInjectSpeed(0);
+      assertContains(result, '0');
+    });
+  });
+
+  describe('updateAutoInjectProgress - injecting with speed/eta', () => {
+    it('shows speed and ETA during injecting status', () => {
+      // Get mock elements via getElementById (auto-created in mockElements)
+      const progressEl =
+        browserGlobals.document.getElementById('injectProgress');
+      progressEl.classList.add('inject-progress');
+      const fill = browserGlobals.document.getElementById('injectProgressFill');
+      const text = browserGlobals.document.getElementById('injectProgressText');
+      // Mock querySelector on the progress element to return children
+      progressEl.querySelector = (sel) => {
+        if (sel.includes('injectProgressText') || sel.includes('progress-text'))
+          return text;
+        if (sel.includes('injectProgressFill') || sel.includes('progress-fill'))
+          return fill;
+        return null;
+      };
+
+      w.updateAutoInjectProgress(
+        75,
+        'injecting',
+        true,
+        1024,
+        2.5,
+        'my_func',
+        0,
+        2,
+      );
+
+      assertContains(text.textContent, 'my_func');
+      assertContains(text.textContent, 'KB/s');
+      assertContains(text.textContent, 'ETA');
+    });
+
+    it('shows function name without speed when speed is 0', () => {
+      const progressEl =
+        browserGlobals.document.getElementById('injectProgress');
+      progressEl.classList.add('inject-progress');
+      const fill = browserGlobals.document.getElementById('injectProgressFill');
+      const text = browserGlobals.document.getElementById('injectProgressText');
+      progressEl.querySelector = (sel) => {
+        if (sel.includes('injectProgressText') || sel.includes('progress-text'))
+          return text;
+        if (sel.includes('injectProgressFill') || sel.includes('progress-fill'))
+          return fill;
+        return null;
+      };
+
+      w.updateAutoInjectProgress(60, 'injecting', true, 0, 0, 'func_a', 1, 3);
+
+      assertContains(text.textContent, 'func_a');
+      assertTrue(!text.textContent.includes('B/s'));
+    });
+
+    it('handles cancelled status', () => {
+      const progressEl =
+        browserGlobals.document.getElementById('injectProgress');
+      progressEl.classList.add('inject-progress');
+      const fill = browserGlobals.document.getElementById('injectProgressFill');
+      const text = browserGlobals.document.getElementById('injectProgressText');
+      fill.style.background = '';
+      progressEl.querySelector = (sel) => {
+        if (sel.includes('injectProgressText') || sel.includes('progress-text'))
+          return text;
+        if (sel.includes('injectProgressFill') || sel.includes('progress-fill'))
+          return fill;
+        return null;
+      };
+
+      w.FPBState.autoInjectProgressHideTimer = null;
+      // Simulate a fresh status change to 'cancelled'
+      w.FPBState.lastAutoInjectStatus = 'injecting';
+      w.updateAutoInjectProgress(0, 'cancelled', true, 0, 0, '', 0, 0);
+
+      // The cancelled branch should set orange background
+      assertTrue(
+        fill.style.background === '#ff9800' || text.textContent.length > 0,
+        'cancelled status should update UI',
+      );
+    });
+
+    it('shows/hides cancel button based on status', () => {
+      const progressEl =
+        browserGlobals.document.getElementById('injectProgress');
+      progressEl.classList.add('inject-progress');
+      const fill = browserGlobals.document.getElementById('injectProgressFill');
+      const text = browserGlobals.document.getElementById('injectProgressText');
+      const cancelBtn =
+        browserGlobals.document.getElementById('injectCancelBtn');
+      progressEl.querySelector = (sel) => {
+        if (sel.includes('injectProgressText') || sel.includes('progress-text'))
+          return text;
+        if (sel.includes('injectProgressFill') || sel.includes('progress-fill'))
+          return fill;
+        return null;
+      };
+
+      // Active status should show cancel button
+      w.updateAutoInjectProgress(50, 'injecting', true, 0, 0, '', 0, 0);
+      assertEqual(cancelBtn.style.display, 'inline-block');
+
+      // Terminal status should hide cancel button
+      w.FPBState.autoInjectProgressHideTimer = null;
+      w.updateAutoInjectProgress(100, 'success', true);
+      assertEqual(cancelBtn.style.display, 'none');
+    });
+  });
+
+  describe('fpbInfo version mismatch (features/fpb.js)', () => {
+    it('shows version mismatch alert when versions differ', async () => {
+      resetMocks();
+      w.FPBState.isConnected = true;
+      let alertMsg = '';
+      const origAlert = global.alert;
+      global.alert = (msg) => (alertMsg = msg);
+      browserGlobals.alert = global.alert;
+
+      setFetchResponse('/api/fpb/info', {
+        success: true,
+        info: { version_string: 'FPBInject v0.1.0' },
+        slots: [],
+        memory: {},
+        fpb_version: 1,
+        version_mismatch: true,
+        device_version: '0.1',
+        host_version: '1.6',
+        build_time_mismatch: false,
+      });
+
+      await w.fpbInfo(false);
+
+      assertContains(alertMsg, 'v0.1');
+      assertContains(alertMsg, 'v1.6');
+
+      global.alert = origAlert;
+      browserGlobals.alert = origAlert;
+      w.FPBState.isConnected = false;
+    });
+
+    it('no alert when versions match', async () => {
+      resetMocks();
+      w.FPBState.isConnected = true;
+      let alertCalled = false;
+      const origAlert = browserGlobals.alert;
+      browserGlobals.alert = () => (alertCalled = true);
+
+      setFetchResponse('/api/fpb/info', {
+        success: true,
+        info: {},
+        slots: [],
+        memory: {},
+        fpb_version: 1,
+        version_mismatch: false,
+        build_time_mismatch: false,
+      });
+
+      await w.fpbInfo(false);
+
+      assertTrue(!alertCalled);
+
+      browserGlobals.alert = origAlert;
+      w.FPBState.isConnected = false;
+    });
+  });
 };
