@@ -294,7 +294,7 @@ function displayAutoInjectStats(result, targetFunc) {
     writeToOutput(`Alloc time:    ${allocTime.toFixed(2)}s`, 'info');
   }
   writeToOutput(
-    `Upload time:   ${uploadTime.toFixed(2)}s (${uploadSpeed} B/s)`,
+    `Upload time:   ${uploadTime.toFixed(2)}s (${typeof window._formatInjectSpeed === 'function' ? window._formatInjectSpeed(uploadSpeed) : uploadSpeed + ' B/s'})`,
     'info',
   );
   const patchTime = result.patch_time || 0;
