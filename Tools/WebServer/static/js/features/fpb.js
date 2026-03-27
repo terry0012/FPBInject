@@ -300,9 +300,11 @@ async function fpbInfo(showPopup = false) {
    =========================== */
 
 function cancelInject() {
+  // Always send cancel to backend (works for auto-inject, manual, and multi)
+  fetch('/api/fpb/inject/cancel', { method: 'POST' }).catch(() => {});
+  // Also abort SSE stream if active (manual/multi inject)
   if (window._injectAbortController) {
     window._injectAbortController.abort();
-    fetch('/api/fpb/inject/cancel', { method: 'POST' }).catch(() => {});
   }
 }
 

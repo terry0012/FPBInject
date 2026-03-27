@@ -185,7 +185,14 @@ async function pollAutoInjectStatus() {
       }
     }
 
-    updateAutoInjectProgress(progress, status, statusChanged, speed, eta);
+    updateAutoInjectProgress(
+      progress,
+      status,
+      statusChanged,
+      speed,
+      eta,
+      message,
+    );
   } catch (e) {
     // Silent error
   }
@@ -399,6 +406,7 @@ function updateAutoInjectProgress(
   statusChanged = false,
   speed = 0,
   eta = 0,
+  message = '',
 ) {
   const state = window.FPBState;
   const allProgressEls = document.querySelectorAll('.inject-progress');
@@ -455,17 +463,21 @@ function updateAutoInjectProgress(
       if (progressText)
         progressText.textContent = t('statusbar.cancelled', 'Cancelled');
       progressFill.style.background = '#ff9800';
-    } else if (status === 'injecting' && speed > 0) {
-      // Show speed and ETA during upload phase
+    } else if (status === 'injecting') {
+      // Show function name + speed and ETA during upload phase
       const speedStr =
-        typeof _formatInjectSpeed === 'function'
-          ? _formatInjectSpeed(speed)
-          : typeof formatSpeed === 'function'
-            ? formatSpeed(speed)
-            : `${Math.round(speed)} B/s`;
-      const etaStr = eta > 0 ? `  ETA ${eta.toFixed(1)}s` : '';
-      if (progressText)
-        progressText.textContent = `${progress.toFixed(0)}%  ${speedStr}${etaStr}`;
+        speed > 0
+          ? typeof window._formatInjectSpeed === 'function'
+            ? window._formatInjectSpeed(speed)
+            : typeof formatSpeed === 'function'
+              ? formatSpeed(speed)
+              : `${Math.round(speed)} B/s`
+          : '';
+      const etaStr = eta > 0 ? `ETA ${eta.toFixed(1)}s` : '';
+      const parts = [message || t('statusbar.injecting', 'Injecting...')];
+      if (speedStr) parts.push(speedStr);
+      if (etaStr) parts.push(etaStr);
+      if (progressText) progressText.textContent = parts.join('  ');
       progressFill.style.background = '';
     } else {
       const statusKey = `statusbar.${status}`;
