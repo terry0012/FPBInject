@@ -125,6 +125,8 @@ async function pollAutoInjectStatus() {
     const status = data.status;
     const message = data.message;
     const progress = data.progress || 0;
+    const speed = data.speed || 0;
+    const eta = data.eta || 0;
     const modifiedFuncs = data.modified_funcs || [];
     const result = data.result || {};
     const sourceFile = data.source_file || null;
@@ -153,6 +155,9 @@ async function pollAutoInjectStatus() {
         case 'injecting':
           writeToOutput(`[AUTO-INJECT] ${message}`, 'info');
           break;
+        case 'cancelled':
+          writeToOutput(`[AUTO-INJECT] ${message}`, 'warning');
+          break;
         case 'success':
           writeToOutput(`[AUTO-INJECT] ${message}`, 'success');
           if (result && Object.keys(result).length > 0) {
@@ -180,7 +185,7 @@ async function pollAutoInjectStatus() {
       }
     }
 
-    updateAutoInjectProgress(progress, status, statusChanged);
+    updateAutoInjectProgress(progress, status, statusChanged, speed, eta);
   } catch (e) {
     // Silent error
   }
@@ -388,17 +393,36 @@ async function createPatchPreviewTab(funcName, sourceFile = null) {
   writeToOutput(`[AUTO-INJECT] Created preview tab: ${tabTitle}`, 'info');
 }
 
-function updateAutoInjectProgress(progress, status, statusChanged = false) {
+function updateAutoInjectProgress(
+  progress,
+  status,
+  statusChanged = false,
+  speed = 0,
+  eta = 0,
+) {
   const state = window.FPBState;
   const allProgressEls = document.querySelectorAll('.inject-progress');
 
   if (status === 'idle') return;
 
-  // For terminal states (success/failed), only update UI on the initial
+  // For terminal states (success/failed/cancelled), only update UI on the initial
   // status change. Subsequent polls with the same status must not re-show
   // the progress bar — neither while the hide timer is running, nor after
   // it has already fired and hidden the bar.
-  if ((status === 'success' || status === 'failed') && !statusChanged) return;
+  if (
+    (status === 'success' || status === 'failed' || status === 'cancelled') &&
+    !statusChanged
+  )
+    return;
+
+  // Show/hide cancel button during active injection
+  const cancelBtn = document.getElementById('injectCancelBtn');
+  const isActive =
+    status === 'compiling' ||
+    status === 'injecting' ||
+    status === 'detecting' ||
+    status === 'generating';
+  if (cancelBtn) cancelBtn.style.display = isActive ? 'inline-block' : 'none';
 
   allProgressEls.forEach((progressEl) => {
     const progressText = progressEl.querySelector(
@@ -427,6 +451,22 @@ function updateAutoInjectProgress(progress, status, statusChanged = false) {
           'Auto-inject failed!',
         );
       progressFill.style.background = '#f44336';
+    } else if (status === 'cancelled') {
+      if (progressText)
+        progressText.textContent = t('statusbar.cancelled', 'Cancelled');
+      progressFill.style.background = '#ff9800';
+    } else if (status === 'injecting' && speed > 0) {
+      // Show speed and ETA during upload phase
+      const speedStr =
+        typeof _formatInjectSpeed === 'function'
+          ? _formatInjectSpeed(speed)
+          : typeof formatSpeed === 'function'
+            ? formatSpeed(speed)
+            : `${Math.round(speed)} B/s`;
+      const etaStr = eta > 0 ? `  ETA ${eta.toFixed(1)}s` : '';
+      if (progressText)
+        progressText.textContent = `${progress.toFixed(0)}%  ${speedStr}${etaStr}`;
+      progressFill.style.background = '';
     } else {
       const statusKey = `statusbar.${status}`;
       if (progressText) progressText.textContent = t(statusKey, status);
@@ -434,7 +474,7 @@ function updateAutoInjectProgress(progress, status, statusChanged = false) {
     }
   });
 
-  if (status === 'success' || status === 'failed') {
+  if (status === 'success' || status === 'failed' || status === 'cancelled') {
     if (statusChanged) {
       if (state.autoInjectProgressHideTimer)
         clearTimeout(state.autoInjectProgressHideTimer);

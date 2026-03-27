@@ -298,11 +298,10 @@ async function fpbInfo(showPopup = false) {
 /* ===========================
    INJECT CANCEL SUPPORT
    =========================== */
-let _injectAbortController = null;
 
 function cancelInject() {
-  if (_injectAbortController) {
-    _injectAbortController.abort();
+  if (window._injectAbortController) {
+    window._injectAbortController.abort();
     fetch('/api/fpb/inject/cancel', { method: 'POST' }).catch(() => {});
   }
 }
@@ -357,7 +356,7 @@ async function fpbInjectMulti() {
   // Show cancel button
   const cancelBtn = document.getElementById('injectCancelBtn');
   if (cancelBtn) cancelBtn.style.display = 'inline-block';
-  _injectAbortController = new AbortController();
+  window._injectAbortController = new AbortController();
 
   try {
     const patchMode =
@@ -413,7 +412,7 @@ async function fpbInjectMulti() {
           }
         },
       },
-      _injectAbortController,
+      window._injectAbortController,
     );
 
     if (data && data.success) {
@@ -451,7 +450,7 @@ async function fpbInjectMulti() {
       hideProgress(3000);
     }
   } finally {
-    _injectAbortController = null;
+    window._injectAbortController = null;
     if (cancelBtn) cancelBtn.style.display = 'none';
   }
 }
@@ -462,3 +461,5 @@ window.fpbTestSerial = fpbTestSerial;
 window.fpbInfo = fpbInfo;
 window.fpbInjectMulti = fpbInjectMulti;
 window.cancelInject = cancelInject;
+window._formatInjectSpeed = _formatInjectSpeed;
+window._injectAbortController = null;

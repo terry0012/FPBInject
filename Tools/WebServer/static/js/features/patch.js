@@ -504,71 +504,47 @@ async function performInject() {
   progressFill.style.width = '5%';
   progressFill.style.background = '';
 
+  // Show cancel button
+  const cancelBtn = document.getElementById('injectCancelBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+  window._injectAbortController = new AbortController();
+
   log.info(
     `Starting injection of ${targetFunc} to slot ${state.selectedSlot}...`,
   );
 
   try {
-    const response = await fetch('/api/fpb/inject/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source_content: source,
-        target_func: targetFunc,
-        comp: state.selectedSlot,
-        patch_mode: document.getElementById('patchMode').value,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let finalResult = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6));
-
-            if (data.type === 'status') {
-              if (data.stage === 'compiling') {
-                progressText.textContent = t('statusbar.compiling');
-                progressFill.style.width = '20%';
-              }
-            } else if (data.type === 'progress') {
-              const uploadPercent = data.percent || 0;
-              const overallPercent = 30 + uploadPercent * 0.6;
-              progressText.textContent = t(
-                'statusbar.uploading',
-                'Uploading... {{uploaded}}/{{total}} bytes ({{percent}}%)',
-                {
-                  uploaded: data.uploaded,
-                  total: data.total,
-                  percent: uploadPercent,
-                },
-              );
-              progressFill.style.width = `${overallPercent}%`;
-            } else if (data.type === 'result') {
-              finalResult = data;
-            }
-          } catch (e) {
-            console.warn('Failed to parse SSE data:', e);
+    const finalResult = await consumeSSEStream(
+      '/api/fpb/inject/stream',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_content: source,
+          target_func: targetFunc,
+          comp: state.selectedSlot,
+          patch_mode: document.getElementById('patchMode').value,
+        }),
+      },
+      {
+        onStatus(data) {
+          if (data.stage === 'compiling') {
+            progressText.textContent = t('statusbar.compiling');
+            progressFill.style.width = '20%';
           }
-        }
-      }
-    }
+        },
+        onProgress(data) {
+          const uploadPercent = data.percent || 0;
+          const overallPercent = 30 + uploadPercent * 0.6;
+          const speedStr =
+            data.speed > 0 ? `  ${window._formatInjectSpeed(data.speed)}` : '';
+          const etaStr = data.eta > 0 ? `  ETA ${data.eta.toFixed(1)}s` : '';
+          progressText.textContent = `${uploadPercent.toFixed(0)}%${speedStr}${etaStr}`;
+          progressFill.style.width = `${overallPercent}%`;
+        },
+      },
+      window._injectAbortController,
+    );
 
     if (finalResult && finalResult.success) {
       progressText.textContent = t('statusbar.complete', 'Complete!');
@@ -583,14 +559,30 @@ async function performInject() {
       }
 
       hideProgress();
+    } else if (finalResult && finalResult.cancelled) {
+      progressText.textContent = t('statusbar.cancelled', 'Cancelled');
+      progressFill.style.background = '#ff9800';
+      log.warn('Injection cancelled');
+      hideProgress(2000);
     } else {
       throw new Error(finalResult?.error || 'Injection failed');
     }
   } catch (e) {
-    progressText.textContent = t('statusbar.failed', 'Failed!');
-    progressFill.style.background = '#f44336';
-    log.error(`${e}`);
-    hideProgress();
+    if (e.name === 'AbortError') {
+      await fetch('/api/fpb/inject/cancel', { method: 'POST' }).catch(() => {});
+      progressText.textContent = t('statusbar.cancelled', 'Cancelled');
+      progressFill.style.background = '#ff9800';
+      log.warn('Injection cancelled');
+      hideProgress(2000);
+    } else {
+      progressText.textContent = t('statusbar.failed', 'Failed!');
+      progressFill.style.background = '#f44336';
+      log.error(`${e}`);
+      hideProgress();
+    }
+  } finally {
+    window._injectAbortController = null;
+    if (cancelBtn) cancelBtn.style.display = 'none';
   }
 }
 

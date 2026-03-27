@@ -313,6 +313,65 @@ def _trigger_auto_inject(file_path):
             # DeviceWorker to avoid ThreadCheckedSerial violations.
             inject_result = {"success": False, "result": {}}
 
+            # Import cancel flag so auto-inject can be cancelled too
+            from app.routes.fpb import _inject_cancelled, _InjectCancelled
+
+            # Speed/ETA tracking state for progress callback
+            _upload_state = {
+                "start_time": 0.0,
+                "last_time": 0.0,
+                "last_bytes": 0,
+            }
+
+            def _progress_callback(uploaded, total):
+                """Update device auto_inject fields with speed/ETA."""
+                if _inject_cancelled.is_set():
+                    raise _InjectCancelled("Inject cancelled by user")
+
+                now = time.time()
+                if _upload_state["start_time"] == 0:
+                    _upload_state["start_time"] = now
+                    _upload_state["last_time"] = now
+                    _upload_state["last_bytes"] = 0
+
+                elapsed = now - _upload_state["start_time"]
+                interval = now - _upload_state["last_time"]
+
+                if interval > 0.1:
+                    speed = (uploaded - _upload_state["last_bytes"]) / interval
+                    _upload_state["last_time"] = now
+                    _upload_state["last_bytes"] = uploaded
+                else:
+                    speed = uploaded / elapsed if elapsed > 0 else 0
+
+                remaining = total - uploaded
+                eta = remaining / speed if speed > 0 else 0
+                percent = round((uploaded / total) * 100, 1) if total > 0 else 0
+
+                # Map upload percent into the 60-95 range of overall progress
+                device.auto_inject_progress = 60 + percent * 0.35
+                device.auto_inject_speed = round(speed, 1)
+                device.auto_inject_eta = round(eta, 1)
+                device.auto_inject_last_update = time.time()
+
+            def _status_callback(event):
+                """Update device auto_inject fields from status events."""
+                stage = event.get("stage", "")
+                name = event.get("name", "")
+                idx = event.get("index", 0)
+                total = event.get("total", 1)
+                if stage == "injecting":
+                    device.auto_inject_status = "injecting"
+                    device.auto_inject_message = (
+                        f"Injecting {name} ({idx + 1}/{total})..."
+                    )
+                    # Reset upload state for each function
+                    _upload_state["start_time"] = 0.0
+                    _upload_state["last_time"] = 0.0
+                    _upload_state["last_bytes"] = 0
+
+                device.auto_inject_last_update = time.time()
+
             def do_inject():
                 fpb = get_fpb_inject()
 
@@ -321,6 +380,7 @@ def _trigger_auto_inject(file_path):
                 device.auto_inject_progress = 55
                 device.auto_inject_last_update = time.time()
 
+                _inject_cancelled.clear()
                 fpb.enter_fl_mode()
 
                 try:
@@ -330,17 +390,14 @@ def _trigger_auto_inject(file_path):
 
                     source_ext = os.path.splitext(file_path)[1] or ".c"
 
-                    device.auto_inject_status = "injecting"
-                    device.auto_inject_message = f"Injecting: markers at lines {marked}"
-                    device.auto_inject_progress = 80
-                    device.auto_inject_last_update = time.time()
-
                     success, result = fpb.inject_multi(
                         source_file=file_path,
                         inject_marker_lines=marked,
                         patch_mode=device.patch_mode,
                         source_ext=source_ext,
                         original_source_file=file_path,
+                        progress_callback=_progress_callback,
+                        status_callback=_status_callback,
                     )
 
                     inject_result["success"] = success
@@ -349,6 +406,13 @@ def _trigger_auto_inject(file_path):
                     # Update slot info after injection attempt
                     if success:
                         fpb.info()
+                except _InjectCancelled:
+                    logger.info("Auto inject cancelled by user")
+                    inject_result["success"] = False
+                    inject_result["result"] = {
+                        "error": "Cancelled",
+                        "cancelled": True,
+                    }
                 finally:
                     fpb.exit_fl_mode()
 
@@ -406,14 +470,20 @@ def _trigger_auto_inject(file_path):
                     for err in errors:
                         logger.warning(f"Injection warning: {err}")
             else:
-                device.auto_inject_status = "failed"
-                error_msg = result.get("error", "Unknown error")
-                errors = result.get("errors", [])
-                if errors:
-                    error_msg = "; ".join(errors[:3])
-                device.auto_inject_message = f"Injection failed: {error_msg}"
-                device.auto_inject_progress = 0
-                logger.error(f"Auto inject failed: {error_msg}")
+                if result.get("cancelled"):
+                    device.auto_inject_status = "cancelled"
+                    device.auto_inject_message = "Injection cancelled by user"
+                    device.auto_inject_progress = 0
+                    logger.info("Auto inject cancelled by user")
+                else:
+                    device.auto_inject_status = "failed"
+                    error_msg = result.get("error", "Unknown error")
+                    errors = result.get("errors", [])
+                    if errors:
+                        error_msg = "; ".join(errors[:3])
+                    device.auto_inject_message = f"Injection failed: {error_msg}"
+                    device.auto_inject_progress = 0
+                    logger.error(f"Auto inject failed: {error_msg}")
 
             device.auto_inject_last_update = time.time()
 

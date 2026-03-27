@@ -86,6 +86,8 @@ def api_auto_inject_status():
             "source_file": device.auto_inject_source_file,
             "modified_funcs": device.auto_inject_modified_funcs,
             "progress": device.auto_inject_progress,
+            "speed": device.auto_inject_speed,
+            "eta": device.auto_inject_eta,
             "last_update": device.auto_inject_last_update,
             "result": device.auto_inject_result,
         }
@@ -99,6 +101,8 @@ def api_auto_inject_reset():
     device.auto_inject_status = "idle"
     device.auto_inject_message = ""
     device.auto_inject_progress = 0
+    device.auto_inject_speed = 0
+    device.auto_inject_eta = 0
     device.auto_inject_last_update = 0
     return jsonify({"success": True})
 
