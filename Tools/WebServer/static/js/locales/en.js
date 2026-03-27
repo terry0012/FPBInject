@@ -229,6 +229,11 @@ window.i18nResources['en'] = {
       elf_file: 'ELF file',
       build_time_mismatch_hint:
         'Please ensure the ELF file matches the firmware running on the device.',
+      // Version mismatch
+      version_mismatch: 'Version Mismatch',
+      version_mismatch_desc:
+        'The device firmware and host tool have different versions. There may be compatibility issues.',
+      host_tool: 'Host tool',
       // Backend disconnection
       backend_disconnected: 'Backend server has disconnected.',
       backend_restart_hint: 'Please restart the server and refresh the page.',

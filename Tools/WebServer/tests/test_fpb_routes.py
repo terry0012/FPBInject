@@ -223,6 +223,73 @@ class TestFPBInfoRoute(TestFPBRoutesBase):
         finally:
             os.unlink(state.device.elf_path)
 
+    @patch("app.routes.fpb._get_helpers")
+    def test_info_version_mismatch(self, mock_helpers):
+        """Test info detects major.minor version mismatch"""
+        mock_fpb = Mock()
+        mock_fpb.info.return_value = (
+            {"base": 0x20000000, "version_string": "FPBInject v1.5.0"},
+            None,
+        )
+        mock_fpb.exit_fl_mode = Mock()
+        mock_fpb.get_elf_build_time.return_value = None
+
+        mock_build_slot = Mock(return_value={"slots": [], "memory": {}})
+        mock_helpers.return_value = make_mock_helpers(mock_fpb, mock_build_slot)
+
+        response = self.client.get("/api/fpb/info")
+        data = json.loads(response.data)
+
+        self.assertTrue(data["success"])
+        self.assertTrue(data["version_mismatch"])
+        self.assertEqual(data["device_version"], "1.5")
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_info_version_match_same_minor(self, mock_helpers):
+        """Test info: same major.minor with different patch is NOT a mismatch"""
+        from version import VERSION_MAJOR, VERSION_MINOR
+
+        mock_fpb = Mock()
+        # Use current host major.minor but different patch
+        mock_fpb.info.return_value = (
+            {
+                "base": 0x20000000,
+                "version_string": f"FPBInject v{VERSION_MAJOR}.{VERSION_MINOR}.99",
+            },
+            None,
+        )
+        mock_fpb.exit_fl_mode = Mock()
+        mock_fpb.get_elf_build_time.return_value = None
+
+        mock_build_slot = Mock(return_value={"slots": [], "memory": {}})
+        mock_helpers.return_value = make_mock_helpers(mock_fpb, mock_build_slot)
+
+        response = self.client.get("/api/fpb/info")
+        data = json.loads(response.data)
+
+        self.assertTrue(data["success"])
+        self.assertFalse(data["version_mismatch"])
+
+    @patch("app.routes.fpb._get_helpers")
+    def test_info_version_no_version_string(self, mock_helpers):
+        """Test info: no version_string in device response means no mismatch"""
+        mock_fpb = Mock()
+        mock_fpb.info.return_value = (
+            {"base": 0x20000000},
+            None,
+        )
+        mock_fpb.exit_fl_mode = Mock()
+        mock_fpb.get_elf_build_time.return_value = None
+
+        mock_build_slot = Mock(return_value={"slots": [], "memory": {}})
+        mock_helpers.return_value = make_mock_helpers(mock_fpb, mock_build_slot)
+
+        response = self.client.get("/api/fpb/info")
+        data = json.loads(response.data)
+
+        self.assertTrue(data["success"])
+        self.assertFalse(data["version_mismatch"])
+
 
 class TestFPBUnpatchRoute(TestFPBRoutesBase):
     """FPB unpatch route tests"""

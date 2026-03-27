@@ -179,6 +179,20 @@ async function fpbInfo(showPopup = false) {
         );
       }
 
+      if (data.version_mismatch) {
+        const devVer = data.device_version || '?';
+        const hostVer = data.host_version || '?';
+
+        log.warn(`Version mismatch: device ${devVer}, host ${hostVer}`);
+
+        alert(
+          `⚠️ ${t('messages.version_mismatch', 'Version Mismatch')}!\n\n` +
+            `${t('messages.version_mismatch_desc', 'The device firmware and host tool have different versions. There may be compatibility issues.')}\n\n` +
+            `${t('messages.device_firmware', 'Device firmware')}: v${devVer}\n` +
+            `${t('messages.host_tool', 'Host tool')}: v${hostVer}`,
+        );
+      }
+
       if (data.fpb_version !== undefined) {
         state.fpbVersion = data.fpb_version;
         // FPB v2 only supports DebugMonitor mode

@@ -669,6 +669,40 @@ class TestFPBProtocolInfo(unittest.TestCase):
         self.assertIsNone(info)
         self.assertEqual(error, "timeout")
 
+    def test_info_parses_version_string_and_fpb_detail(self):
+        """info() parses FPBInject version string, fpb_detail, and file_transfer."""
+        raw = (
+            "[FLOK]\n"
+            "FPBInject v1.6.0\n"
+            "Build: Mar 27 2026 11:31:06\n"
+            "Used: 3857\n"
+            "Slots: 1/8\n"
+            "FileTransfer: enabled\n"
+            "FPB: v2, 8 code + 0 lit = 8 total, enabled\n"
+            "Slot[0]: 0x2C2D01D8 -> 0x3D2C0EF0, 3857 bytes (COMP=0x2C2D0150, remap, on)\n"
+            "Slot[1]: empty (COMP=0x00000000, off)\n"
+        )
+        self.protocol.send_cmd = MagicMock(return_value=raw)
+        self.protocol.parse_response = MagicMock(
+            return_value={"ok": True, "msg": "", "raw": raw}
+        )
+        info, error = self.protocol.info()
+        self.assertIsNotNone(info)
+        self.assertEqual(error, "")
+        self.assertEqual(info["version_string"], "FPBInject v1.6.0")
+        self.assertEqual(info["build_time"], "Mar 27 2026 11:31:06")
+        self.assertEqual(info["fpb_detail"], "v2, 8 code + 0 lit = 8 total, enabled")
+        self.assertEqual(info["file_transfer"], "enabled")
+        self.assertEqual(info["fpb_version"], 2)
+        self.assertEqual(info["used"], 3857)
+        self.assertEqual(info.get("active_slots"), 1)
+        self.assertEqual(info.get("total_slots"), 8)
+        # Slot[0] occupied, Slot[1] empty
+        occupied = [s for s in info["slots"] if s["occupied"]]
+        empty = [s for s in info["slots"] if not s["occupied"]]
+        self.assertEqual(len(occupied), 1)
+        self.assertGreaterEqual(len(empty), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

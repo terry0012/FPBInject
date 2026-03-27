@@ -225,6 +225,10 @@ window.i18nResources['zh-CN'] = {
       device_firmware: '设备固件',
       elf_file: 'ELF 文件',
       build_time_mismatch_hint: '请确保 ELF 文件与设备上运行的固件匹配。',
+      // 版本不匹配
+      version_mismatch: '版本不匹配',
+      version_mismatch_desc: '设备固件和主机工具版本不同，可能存在兼容性问题。',
+      host_tool: '主机工具',
       // 后端断开连接
       backend_disconnected: '后端服务器已断开连接。',
       backend_restart_hint: '请重启服务器并刷新页面。',

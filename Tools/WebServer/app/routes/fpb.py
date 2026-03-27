@@ -224,6 +224,27 @@ def api_fpb_info():
     # Get FPB version from info (default to v1)
     fpb_version = info.get("fpb_version", 1) if info else 1
 
+    # Check version compatibility (compare major.minor only)
+    version_mismatch = False
+    device_version = None
+    host_version = None
+    if info and info.get("version_string"):
+        import re as _re
+
+        from version import VERSION_MAJOR, VERSION_MINOR
+
+        match = _re.search(r"v(\d+)\.(\d+)", info["version_string"])
+        if match:
+            dev_major, dev_minor = int(match.group(1)), int(match.group(2))
+            device_version = f"{dev_major}.{dev_minor}"
+            host_version = f"{VERSION_MAJOR}.{VERSION_MINOR}"
+            if (dev_major, dev_minor) != (VERSION_MAJOR, VERSION_MINOR):
+                version_mismatch = True
+                logger.warning(
+                    f"Version mismatch! Device: {device_version}, "
+                    f"Host: {host_version}"
+                )
+
     return jsonify(
         {
             "success": True,
@@ -234,6 +255,9 @@ def api_fpb_info():
             "build_time_mismatch": build_time_mismatch,
             "device_build_time": device_build_time,
             "elf_build_time": elf_build_time,
+            "version_mismatch": version_mismatch,
+            "device_version": device_version,
+            "host_version": host_version,
         }
     )
 

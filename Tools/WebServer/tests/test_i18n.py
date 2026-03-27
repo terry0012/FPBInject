@@ -1240,6 +1240,10 @@ class TestDevicePopupMessages(unittest.TestCase):
         "device_firmware",
         "elf_file",
         "build_time_mismatch_hint",
+        # Version mismatch
+        "version_mismatch",
+        "version_mismatch_desc",
+        "host_tool",
         # Backend disconnection
         "backend_disconnected",
         "backend_restart_hint",
@@ -1315,6 +1319,9 @@ class TestDevicePopupMessages(unittest.TestCase):
         self.assertIn("t('messages.slots_used'", content)
         self.assertIn("t('messages.file_transfer'", content)
         self.assertIn("t('messages.fpb_detail'", content)
+        self.assertIn("t('messages.version_mismatch'", content)
+        self.assertIn("t('messages.version_mismatch_desc'", content)
+        self.assertIn("t('messages.host_tool'", content)
 
     def test_fpb_ping_has_alert_popup(self):
         """Test that fpbPing function has alert popup for feedback."""
