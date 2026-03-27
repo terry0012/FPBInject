@@ -1227,10 +1227,12 @@ class TestDevicePopupMessages(unittest.TestCase):
         "error",
         "device_info_success",
         "device_info_failed",
-        "fpb_version",
+        "firmware_version",
         "build_time",
         "memory_used",
         "slots_used",
+        "fpb_detail",
+        "file_transfer",
         "unknown_error",
         "build_time_mismatch",
         "build_time_mismatch_desc",
@@ -1307,10 +1309,12 @@ class TestDevicePopupMessages(unittest.TestCase):
         # Check that fpbInfo uses t() for messages
         self.assertIn("t('messages.device_info_success'", content)
         self.assertIn("t('messages.device_info_failed'", content)
-        self.assertIn("t('messages.fpb_version'", content)
+        self.assertIn("t('messages.firmware_version'", content)
         self.assertIn("t('messages.build_time'", content)
         self.assertIn("t('messages.memory_used'", content)
         self.assertIn("t('messages.slots_used'", content)
+        self.assertIn("t('messages.file_transfer'", content)
+        self.assertIn("t('messages.fpb_detail'", content)
 
     def test_fpb_ping_has_alert_popup(self):
         """Test that fpbPing function has alert popup for feedback."""

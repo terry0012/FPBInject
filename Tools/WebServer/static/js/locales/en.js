@@ -212,10 +212,12 @@ window.i18nResources['en'] = {
       // Device info messages
       device_info_success: 'Device Info Retrieved',
       device_info_failed: 'Failed to Get Device Info',
-      fpb_version: 'FPB Version',
       build_time: 'Build Time',
       memory_used: 'Memory Used',
       slots_used: 'Slots Used',
+      firmware_version: 'Firmware',
+      fpb_detail: 'FPB',
+      file_transfer: 'File Transfer',
       unknown_error: 'Unknown error',
       // Build time mismatch
       build_time_mismatch: 'Build Time Mismatch',

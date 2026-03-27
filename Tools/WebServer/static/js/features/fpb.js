@@ -227,15 +227,16 @@ async function fpbInfo(showPopup = false) {
 
       // Only show success popup when manually triggered
       if (showPopup) {
+        const info = data.info || {};
         const infoLines = [];
         infoLines.push(
           `✅ ${t('messages.device_info_success', 'Device Info Retrieved')}`,
         );
         infoLines.push('');
 
-        if (data.fpb_version !== undefined) {
+        if (info.version_string) {
           infoLines.push(
-            `${t('messages.fpb_version', 'FPB Version')}: ${data.fpb_version}`,
+            `${t('messages.firmware_version', 'Firmware')}: ${info.version_string}`,
           );
         }
 
@@ -257,15 +258,31 @@ async function fpbInfo(showPopup = false) {
           infoLines.push(
             `${t('messages.slots_used', 'Slots Used')}: ${occupiedSlots}/${totalSlots}`,
           );
+        }
 
+        if (info.file_transfer) {
+          infoLines.push(
+            `${t('messages.file_transfer', 'File Transfer')}: ${info.file_transfer}`,
+          );
+        }
+
+        if (info.fpb_detail) {
+          infoLines.push(
+            `${t('messages.fpb_detail', 'FPB')}: ${info.fpb_detail}`,
+          );
+        }
+
+        if (data.slots) {
           // List occupied slots
-          data.slots.forEach((slot) => {
-            if (slot.occupied && slot.func) {
+          const occupiedList = data.slots.filter((s) => s.occupied && s.func);
+          if (occupiedList.length > 0) {
+            infoLines.push('');
+            occupiedList.forEach((slot) => {
               infoLines.push(
                 `  ${t('device.slot_n', 'Slot {{n}}', { n: slot.id })}: ${slot.func}`,
               );
-            }
-          });
+            });
+          }
         }
 
         alert(infoLines.join('\n'));

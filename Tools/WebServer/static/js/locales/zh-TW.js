@@ -211,10 +211,12 @@ window.i18nResources['zh-TW'] = {
       // 裝置資訊訊息
       device_info_success: '裝置資訊已取得',
       device_info_failed: '取得裝置資訊失敗',
-      fpb_version: 'FPB 版本',
       build_time: '建置時間',
       memory_used: '已用記憶體',
       slots_used: '已用槽位',
+      firmware_version: '韌體',
+      fpb_detail: 'FPB',
+      file_transfer: '檔案傳輸',
       unknown_error: '未知錯誤',
       // 建置時間不符
       build_time_mismatch: '建置時間不符',

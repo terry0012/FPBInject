@@ -381,15 +381,20 @@ class FPBProtocol:
                 info = {"ok": True, "slots": [], "fpb_version": 1}  # Default to v1
                 for line in raw.split("\n"):
                     line = line.strip()
-                    if line.startswith("Build:"):
+                    if line.startswith("FPBInject") or line.startswith("FPBINJECT"):
+                        info["version_string"] = line
+                    elif line.startswith("Build:"):
                         info["build_time"] = line.split(":", 1)[1].strip()
                     elif line.startswith("FPB:"):
                         # Parse FPB version: "FPB: v1, 6 code + 2 lit = 8 total"
                         # or "FPB: v2, 8 code + 0 lit = 8 total"
+                        info["fpb_detail"] = line.split(":", 1)[1].strip()
                         if "v1" in line:
                             info["fpb_version"] = 1
                         elif "v2" in line:
                             info["fpb_version"] = 2
+                    elif line.startswith("FileTransfer:"):
+                        info["file_transfer"] = line.split(":", 1)[1].strip()
                     elif line.startswith("Used:"):
                         try:
                             info["used"] = int(line.split(":")[1].strip())
