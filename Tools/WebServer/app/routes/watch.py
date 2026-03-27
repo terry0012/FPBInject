@@ -88,6 +88,9 @@ def api_auto_inject_status():
             "progress": device.auto_inject_progress,
             "speed": device.auto_inject_speed,
             "eta": device.auto_inject_eta,
+            "inject_name": device.auto_inject_inject_name,
+            "inject_index": device.auto_inject_inject_index,
+            "inject_total": device.auto_inject_inject_total,
             "last_update": device.auto_inject_last_update,
             "result": device.auto_inject_result,
         }

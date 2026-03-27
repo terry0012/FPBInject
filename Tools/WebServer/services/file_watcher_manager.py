@@ -365,6 +365,9 @@ def _trigger_auto_inject(file_path):
                     device.auto_inject_message = (
                         f"Injecting {name} ({idx + 1}/{total})..."
                     )
+                    device.auto_inject_inject_name = name
+                    device.auto_inject_inject_index = idx
+                    device.auto_inject_inject_total = total
                     # Reset upload state for each function
                     _upload_state["start_time"] = 0.0
                     _upload_state["last_time"] = 0.0

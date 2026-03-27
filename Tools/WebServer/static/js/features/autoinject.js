@@ -127,6 +127,9 @@ async function pollAutoInjectStatus() {
     const progress = data.progress || 0;
     const speed = data.speed || 0;
     const eta = data.eta || 0;
+    const injectName = data.inject_name || '';
+    const injectIndex = data.inject_index || 0;
+    const injectTotal = data.inject_total || 0;
     const modifiedFuncs = data.modified_funcs || [];
     const result = data.result || {};
     const sourceFile = data.source_file || null;
@@ -191,7 +194,9 @@ async function pollAutoInjectStatus() {
       statusChanged,
       speed,
       eta,
-      message,
+      injectName,
+      injectIndex,
+      injectTotal,
     );
   } catch (e) {
     // Silent error
@@ -406,7 +411,9 @@ function updateAutoInjectProgress(
   statusChanged = false,
   speed = 0,
   eta = 0,
-  message = '',
+  injectName = '',
+  injectIndex = 0,
+  injectTotal = 0,
 ) {
   const state = window.FPBState;
   const allProgressEls = document.querySelectorAll('.inject-progress');
@@ -464,7 +471,11 @@ function updateAutoInjectProgress(
         progressText.textContent = t('statusbar.cancelled', 'Cancelled');
       progressFill.style.background = '#ff9800';
     } else if (status === 'injecting') {
-      // Show function name + speed and ETA during upload phase
+      // Show translated function name + speed and ETA during upload phase
+      const injectText = injectName
+        ? t('statusbar.injecting', 'Injecting...') +
+          ` ${injectName} (${injectIndex + 1}/${injectTotal})`
+        : t('statusbar.injecting', 'Injecting...');
       const speedStr =
         speed > 0
           ? typeof window._formatInjectSpeed === 'function'
@@ -474,7 +485,7 @@ function updateAutoInjectProgress(
               : `${Math.round(speed)} B/s`
           : '';
       const etaStr = eta > 0 ? `ETA ${eta.toFixed(1)}s` : '';
-      const parts = [message || t('statusbar.injecting', 'Injecting...')];
+      const parts = [injectText];
       if (speedStr) parts.push(speedStr);
       if (etaStr) parts.push(etaStr);
       if (progressText) progressText.textContent = parts.join('  ');

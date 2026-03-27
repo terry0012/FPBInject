@@ -144,6 +144,9 @@ class DeviceState(DeviceStateBase):
         self.auto_inject_result = {}  # Injection statistics result
         self.auto_inject_speed = 0  # Upload speed in B/s
         self.auto_inject_eta = 0  # Estimated time remaining in seconds
+        self.auto_inject_inject_name = ""  # Current function being injected
+        self.auto_inject_inject_index = 0  # Current function index
+        self.auto_inject_inject_total = 0  # Total functions to inject
 
         # Slot update tracking (for frontend push)
         self.slot_update_id = 0  # Incremented on slot info change
