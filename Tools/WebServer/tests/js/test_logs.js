@@ -615,6 +615,45 @@ module.exports = function (w) {
       w.stopLogPolling();
       global.EventSource = origEventSource;
     });
+
+    it('includes auth token in EventSource URL when set', () => {
+      const origEventSource = global.EventSource;
+      let capturedUrl = null;
+      global.EventSource = function (url) {
+        capturedUrl = url;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+      w.__fpbAuthToken = 'test_token_123';
+      w.startLogStreaming();
+      assertTrue(capturedUrl.includes('?token=test_token_123'));
+      w.stopLogStreaming();
+      delete w.__fpbAuthToken;
+      global.EventSource = origEventSource;
+    });
+
+    it('does not add token param when no auth token', () => {
+      const origEventSource = global.EventSource;
+      let capturedUrl = null;
+      global.EventSource = function (url) {
+        capturedUrl = url;
+        this.close = () => {};
+        this.onopen = null;
+        this.onmessage = null;
+        this.onerror = null;
+        this.addEventListener = () => {};
+      };
+      const origToken = w.__fpbAuthToken;
+      delete w.__fpbAuthToken;
+      w.startLogStreaming();
+      assertEqual(capturedUrl, '/api/logs/stream');
+      w.stopLogStreaming();
+      if (origToken) w.__fpbAuthToken = origToken;
+      global.EventSource = origEventSource;
+    });
   });
 
   describe('stopLogStreaming Function', () => {

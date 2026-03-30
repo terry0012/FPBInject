@@ -121,6 +121,28 @@ class TestAuthMiddleware(unittest.TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertEqual(resp.headers.get("X-Content-Type-Options"), "nosniff")
 
+    def test_api_route_returns_json_on_403(self):
+        """API routes should return JSON error on 403, not plain text"""
+
+        @self.app.route("/api/ports")
+        def api_ports():
+            return {"success": True, "ports": []}
+
+        resp = self.client.get(
+            "/api/ports", environ_base={"REMOTE_ADDR": "192.168.1.100"}
+        )
+        self.assertEqual(resp.status_code, 403)
+        data = resp.get_json()
+        self.assertIsNotNone(data)
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"], "Forbidden")
+
+    def test_non_api_route_returns_plain_text_on_403(self):
+        """Non-API routes should return plain text Forbidden on 403"""
+        resp = self.client.get("/test", environ_base={"REMOTE_ADDR": "192.168.1.100"})
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.data, b"Forbidden")
+
 
 class TestNoAuthMode(unittest.TestCase):
     """Test that app works without auth middleware (--no-auth)"""

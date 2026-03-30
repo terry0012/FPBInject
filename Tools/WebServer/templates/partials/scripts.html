@@ -57,10 +57,27 @@
     const urlToken = new URLSearchParams(location.search).get("token");
     if (urlToken) {
       document.cookie = `fpbinject_token=${urlToken}; path=/; SameSite=Lax`;
+      window.__fpbAuthToken = urlToken;
       const url = new URL(location);
       url.searchParams.delete("token");
       history.replaceState(null, "", url);
     }
+  })();
+
+  // Wrap fetch to auto-attach auth token header for API requests
+  (function () {
+    const _origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      const token = window.__fpbAuthToken;
+      if (token && typeof url === "string" && url.startsWith("/api/")) {
+        opts = opts || {};
+        opts.headers = new Headers(opts.headers || {});
+        if (!opts.headers.has("X-Auth-Token")) {
+          opts.headers.set("X-Auth-Token", token);
+        }
+      }
+      return _origFetch.call(this, url, opts);
+    };
   })();
 
   document.addEventListener("DOMContentLoaded", () => {

@@ -28,7 +28,11 @@ function startLogStreaming() {
   state.slotUpdateId = 0;
 
   try {
-    logEventSource = new EventSource('/api/logs/stream');
+    let sseUrl = '/api/logs/stream';
+    if (window.__fpbAuthToken) {
+      sseUrl += `?token=${window.__fpbAuthToken}`;
+    }
+    logEventSource = new EventSource(sseUrl);
 
     logEventSource.onopen = function () {
       // SSE connected, stop any polling fallback and reset retry count

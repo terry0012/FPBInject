@@ -531,6 +531,24 @@ module.exports = function (w) {
       w.FPBState.toolTerminal = null;
     });
 
+    it('handles non-ok response (e.g. 403 Forbidden)', async () => {
+      const mockTerm = new MockTerminal();
+      w.FPBState.toolTerminal = mockTerm;
+      setFetchResponse('/api/ports', {
+        _ok: false,
+        _status: 403,
+        success: false,
+        error: 'Forbidden',
+      });
+      await w.refreshPorts();
+      assertTrue(
+        mockTerm._writes.some(
+          (wr) => wr.msg && wr.msg.includes('Failed to refresh ports'),
+        ),
+      );
+      w.FPBState.toolTerminal = null;
+    });
+
     it('handles fetch exception', async () => {
       const mockTerm = new MockTerminal();
       w.FPBState.toolTerminal = mockTerm;
