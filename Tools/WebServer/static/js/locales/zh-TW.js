@@ -258,7 +258,7 @@ window.i18nResources['zh-TW'] = {
       serial_test_complete: '測試完成',
       apply_recommended_size: '是否套用建議參數？',
       fragment_detected_hint:
-        '偵測到串列埠傳送方向存在丟包現象。為確保通訊可靠性，資料將以 {{size}}B 為單位分片傳送，每片間隔 {{delay}}ms。建議優化串列埠驅動或使用硬體 UART 以獲得更佳的傳輸速度。',
+        '偵測到 PC → 裝置方向存在丟包現象。為確保通訊可靠性，資料將以 {{size}}B 為單位分片傳送，每片間隔 {{delay}}ms。建議優化串列埠驅動或使用硬體 UART 以獲得更佳的傳輸速度。',
       // ELF 監視器
       elf_file_changed: 'ELF 檔案 "{{fileName}}" 已變更。',
       reload_symbols_now: '立即重新載入符號？',

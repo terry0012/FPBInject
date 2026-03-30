@@ -159,7 +159,7 @@ async function fpbTestSerial() {
           `\n\n⚠️ ` +
           t(
             'messages.fragment_detected_hint',
-            'Serial TX data loss detected. To maintain reliability, transmissions will be split into {{size}}B segments with {{delay}}ms intervals. Consider upgrading the serial driver or using a hardware UART for better throughput.',
+            'Serial TX data loss detected (PC → Device). To maintain reliability, transmissions will be split into {{size}}B segments with {{delay}}ms intervals. Consider upgrading the serial driver or using a hardware UART for better throughput.',
             { size: recFragSize, delay: recFragDelay * 1000 },
           );
       }
