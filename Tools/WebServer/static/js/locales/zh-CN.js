@@ -258,7 +258,7 @@ window.i18nResources['zh-CN'] = {
       serial_test_complete: '测试完成',
       apply_recommended_size: '是否应用推荐参数？',
       fragment_detected_hint:
-        '检测到 PC → 设备方向存在丢包现象。为保证通信可靠性，数据将以 {{size}}B 为单位分片发送，每片间隔 {{delay}}ms。建议优化串口驱动或使用硬件 UART 以获得更好的传输速度。',
+        '检测到 PC → 设备方向存在丢包现象。为保证通信可靠性，数据将以 {{size}}B 为单位分片发送，每片间隔 {{delay}}ms。建议优化 UART 驱动以获得更好的传输速度。',
       // ELF 监视器
       elf_file_changed: 'ELF 文件 "{{fileName}}" 已更改。',
       reload_symbols_now: '立即重新加载符号？',

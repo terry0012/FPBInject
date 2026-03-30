@@ -264,7 +264,7 @@ window.i18nResources['en'] = {
       serial_test_complete: 'Test Complete',
       apply_recommended_size: 'Apply recommended parameters?',
       fragment_detected_hint:
-        'Serial TX data loss detected (PC → Device). To maintain reliability, transmissions will be split into {{size}}B segments with {{delay}}ms intervals. Consider upgrading the serial driver or using a hardware UART for better throughput.',
+        'Serial TX data loss detected (PC → Device). To maintain reliability, transmissions will be split into {{size}}B segments with {{delay}}ms intervals. Consider optimizing the UART driver for better throughput.',
       // ELF watcher
       elf_file_changed: 'ELF file "{{fileName}}" has changed.',
       reload_symbols_now: 'Reload symbols now?',
