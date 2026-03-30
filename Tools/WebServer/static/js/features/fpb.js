@@ -155,6 +155,13 @@ async function fpbTestSerial() {
         `Upload: ${recUpload}B, Download: ${recDownload}B`;
       if (recFragSize > 0) {
         confirmMsg += `\nTX Fragment: ${recFragSize}B, Delay: ${recFragDelay * 1000}ms`;
+        confirmMsg +=
+          `\n\n⚠️ ` +
+          t(
+            'messages.fragment_detected_hint',
+            'Serial TX data loss detected. To maintain reliability, transmissions will be split into {{size}}B segments with {{delay}}ms intervals. Consider upgrading the serial driver or using a hardware UART for better throughput.',
+            { size: recFragSize, delay: recFragDelay * 1000 },
+          );
       }
       confirmMsg +=
         `\n\n` +
