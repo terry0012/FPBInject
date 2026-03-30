@@ -176,12 +176,15 @@ async function fpbTestSerial() {
         if (uploadInput) uploadInput.value = recUpload;
         if (downloadInput) downloadInput.value = recDownload;
 
-        /* Apply TX fragment params if probed */
+        /* Apply TX fragment params: set probed values or reset to 0 */
+        const fragInput = document.getElementById('serialTxFragmentSize');
+        const delayInput = document.getElementById('serialTxFragmentDelay');
         if (recFragSize > 0) {
-          const fragInput = document.getElementById('serialTxFragmentSize');
-          const delayInput = document.getElementById('serialTxFragmentDelay');
           if (fragInput) fragInput.value = recFragSize;
           if (delayInput) delayInput.value = recFragDelay * 1000; // display as ms
+        } else {
+          if (fragInput) fragInput.value = 0;
+          if (delayInput) delayInput.value = 2; // default 2ms
         }
 
         await saveConfig(true);
