@@ -815,6 +815,94 @@ class FPBProtocol:
             result["needed"] = True
         return result
 
+    def _phase_fragment_size_probe(self, timeout: float = 2.0) -> Dict:
+        """Phase 1.5: Find optimal TX fragment size and delay.
+
+        Called when Phase 1 detects that fragmentation is needed.
+
+        Strategy:
+        1. Fix delay=5ms, try fragment_size from large to small (128→8).
+           Find the largest size that lets a 256B echo succeed.
+        2. Fix fragment_size, try reducing delay (3ms→1ms).
+           Find the smallest delay that still works (verified 3 times).
+
+        Temporarily sets device.serial_tx_fragment_size/delay during probing,
+        restores originals on failure.
+        """
+        result: Dict = {
+            "success": False,
+            "recommended_fragment_size": 0,
+            "recommended_fragment_delay": 0.005,
+            "tests": [],
+        }
+
+        orig_size = getattr(self.device, "serial_tx_fragment_size", 0)
+        orig_delay = getattr(self.device, "serial_tx_fragment_delay", 0.002)
+
+        conservative_delay = 0.005  # 5ms starting point
+        test_sizes = [128, 64, 32, 16, 8]
+
+        # Step 1: find largest working fragment_size
+        best_size = 0
+        for size in test_sizes:
+            self.device.serial_tx_fragment_size = size
+            self.device.serial_tx_fragment_delay = conservative_delay
+
+            passed = False
+            for _ in range(3):
+                probe = self._probe_echo(256, timeout=timeout)
+                if probe["passed"]:
+                    passed = True
+                    break
+
+            result["tests"].append(
+                {"phase": "size", "fragment_size": size, "passed": passed}
+            )
+
+            if passed:
+                best_size = size
+                break  # largest first, so first pass is best
+
+        if best_size == 0:
+            # Restore originals
+            self.device.serial_tx_fragment_size = orig_size
+            self.device.serial_tx_fragment_delay = orig_delay
+            result["error"] = "All fragment sizes failed"
+            return result
+
+        # Step 2: fix size, try reducing delay
+        best_delay = conservative_delay
+        self.device.serial_tx_fragment_size = best_size
+        test_delays = [0.003, 0.002, 0.001]
+
+        for delay in test_delays:
+            self.device.serial_tx_fragment_delay = delay
+            # Verify 3 times for stability
+            passed = True
+            for _ in range(3):
+                probe = self._probe_echo(256, timeout=timeout)
+                if not probe["passed"]:
+                    passed = False
+                    break
+
+            result["tests"].append(
+                {"phase": "delay", "fragment_delay": delay, "passed": passed}
+            )
+
+            if passed:
+                best_delay = delay
+            else:
+                break  # delays are decreasing, stop at first failure
+
+        # Apply best params
+        self.device.serial_tx_fragment_size = best_size
+        self.device.serial_tx_fragment_delay = best_delay
+
+        result["success"] = True
+        result["recommended_fragment_size"] = best_size
+        result["recommended_fragment_delay"] = best_delay
+        return result
+
     def _phase_upload_probe(
         self, start_size: int = 16, max_size: int = 512, timeout: float = 2.0
     ) -> Dict:
@@ -1031,7 +1119,28 @@ class FPBProtocol:
             results["phases"]["fragment"] = frag
             results["fragment_needed"] = frag["needed"]
 
-            # Phase 2: Upload chunk probe (same as old test_serial_throughput)
+            # Phase 1.5: If fragmentation needed, probe optimal params
+            if frag["needed"]:
+                frag_probe = self._phase_fragment_size_probe(timeout=timeout)
+                results["phases"]["fragment_probe"] = frag_probe
+
+                if frag_probe["success"]:
+                    results["recommended_fragment_size"] = frag_probe[
+                        "recommended_fragment_size"
+                    ]
+                    results["recommended_fragment_delay"] = frag_probe[
+                        "recommended_fragment_delay"
+                    ]
+                else:
+                    results["success"] = False
+                    results["error"] = (
+                        "TX fragmentation probe failed: "
+                        + frag_probe.get("error", "unknown")
+                    )
+                    return results
+
+            # Phase 2: Upload chunk probe
+            # (now works correctly with fragmentation if Phase 1.5 set it)
             upload = self._phase_upload_probe(
                 start_size=start_size, max_size=max_size, timeout=timeout
             )

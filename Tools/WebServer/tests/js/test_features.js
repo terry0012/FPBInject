@@ -146,6 +146,52 @@ module.exports = function (w) {
       w.FPBState.toolTerminal = null;
       w.FPBState.isConnected = false;
     });
+
+    it('displays Phase 1.5 fragment probe results', async () => {
+      w.FPBState.isConnected = true;
+      const mockTerm = new MockTerminal();
+      w.FPBState.toolTerminal = mockTerm;
+      browserGlobals.confirm = () => false;
+      setFetchResponse('/api/fpb/test-serial', {
+        success: true,
+        fragment_needed: true,
+        recommended_upload_chunk_size: 96,
+        recommended_download_chunk_size: 1024,
+        recommended_fragment_size: 64,
+        recommended_fragment_delay: 0.003,
+        max_working_size: 128,
+        tests: [],
+        phases: {
+          fragment: { needed: true },
+          fragment_probe: {
+            success: true,
+            recommended_fragment_size: 64,
+            recommended_fragment_delay: 0.003,
+            tests: [
+              { phase: 'size', fragment_size: 128, passed: false },
+              { phase: 'size', fragment_size: 64, passed: true },
+              { phase: 'delay', fragment_delay: 0.003, passed: true },
+              { phase: 'delay', fragment_delay: 0.002, passed: false },
+            ],
+          },
+          upload: { tests: [], max_working_size: 128 },
+        },
+      });
+      await w.fpbTestSerial();
+      assertTrue(
+        mockTerm._writes.some(
+          (wr) => wr.msg && wr.msg.includes('Fragment Probe'),
+        ),
+      );
+      assertTrue(
+        mockTerm._writes.some(
+          (wr) => wr.msg && wr.msg.includes('fragment_size=64'),
+        ),
+      );
+      w.FPBState.toolTerminal = null;
+      w.FPBState.isConnected = false;
+      browserGlobals.confirm = () => true;
+    });
   });
 
   describe('fpbInfo Function', () => {

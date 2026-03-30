@@ -704,5 +704,159 @@ class TestFPBProtocolInfo(unittest.TestCase):
         self.assertGreaterEqual(len(empty), 1)
 
 
+class TestPhaseFragmentSizeProbe(unittest.TestCase):
+    """Test _phase_fragment_size_probe (Phase 1.5)"""
+
+    def setUp(self):
+        self.device = MagicMock()
+        self.device.ser = MagicMock()
+        self.device.raw_serial_log = []
+        self.device.raw_log_next_id = 0
+        self.device.raw_log_max_size = 5000
+        self.device.serial_tx_fragment_size = 0
+        self.device.serial_tx_fragment_delay = 0.002
+        self.protocol = FPBProtocol(self.device)
+
+    def test_finds_largest_working_fragment_size(self):
+        """Should find the largest fragment_size that works."""
+        # 128 fails, 64 succeeds
+        call_count = [0]
+
+        def fake_probe_echo(size, timeout=2.0):
+            call_count[0] += 1
+            frag = self.device.serial_tx_fragment_size
+            if frag >= 64:
+                return {"passed": True}
+            return {"passed": False, "error": "CRC mismatch"}
+
+        self.protocol._probe_echo = fake_probe_echo
+
+        result = self.protocol._phase_fragment_size_probe(timeout=1.0)
+        self.assertTrue(result["success"])
+        # 128 fails, 64 succeeds → recommended is 64
+        # (128 tried first but fails, then 64 succeeds)
+        self.assertIn(result["recommended_fragment_size"], [64, 128])
+        self.assertGreater(result["recommended_fragment_size"], 0)
+
+    def test_all_sizes_fail(self):
+        """Should return failure when all fragment sizes fail."""
+        self.protocol._probe_echo = lambda size, timeout=2.0: {
+            "passed": False,
+            "error": "fail",
+        }
+
+        result = self.protocol._phase_fragment_size_probe(timeout=1.0)
+        self.assertFalse(result["success"])
+        self.assertIn("failed", result.get("error", ""))
+        # Should restore original params
+        self.assertEqual(self.device.serial_tx_fragment_size, 0)
+
+    def test_delay_optimization(self):
+        """Should try reducing delay after finding working size."""
+        # All sizes work, all delays work
+        self.protocol._probe_echo = lambda size, timeout=2.0: {"passed": True}
+
+        result = self.protocol._phase_fragment_size_probe(timeout=1.0)
+        self.assertTrue(result["success"])
+        # Should have optimized delay to smallest (1ms)
+        self.assertEqual(result["recommended_fragment_delay"], 0.001)
+
+    def test_delay_stops_at_first_failure(self):
+        """Should stop reducing delay at first failure."""
+        call_count = [0]
+
+        def fake_probe(size, timeout=2.0):
+            call_count[0] += 1
+            delay = self.device.serial_tx_fragment_delay
+            # Fail at 2ms delay
+            if delay <= 0.002:
+                return {"passed": False, "error": "timeout"}
+            return {"passed": True}
+
+        self.protocol._probe_echo = fake_probe
+
+        result = self.protocol._phase_fragment_size_probe(timeout=1.0)
+        self.assertTrue(result["success"])
+        # 5ms works, 3ms works, 2ms fails → recommended is 3ms
+        self.assertEqual(result["recommended_fragment_delay"], 0.003)
+
+    def test_applies_params_to_device(self):
+        """Should set device fragment params after successful probe."""
+        self.protocol._probe_echo = lambda size, timeout=2.0: {"passed": True}
+
+        result = self.protocol._phase_fragment_size_probe(timeout=1.0)
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            self.device.serial_tx_fragment_size,
+            result["recommended_fragment_size"],
+        )
+        self.assertEqual(
+            self.device.serial_tx_fragment_delay,
+            result["recommended_fragment_delay"],
+        )
+
+
+class TestSerialThroughputFragmentIntegration(unittest.TestCase):
+    """Test that test_serial_throughput integrates Phase 1.5 correctly."""
+
+    def setUp(self):
+        self.device = MagicMock()
+        self.device.ser = MagicMock()
+        self.device.raw_serial_log = []
+        self.device.raw_log_next_id = 0
+        self.device.raw_log_max_size = 5000
+        self.device.serial_tx_fragment_size = 0
+        self.device.serial_tx_fragment_delay = 0.002
+        self.protocol = FPBProtocol(self.device)
+
+    def test_fragment_needed_triggers_phase_1_5(self):
+        """When Phase 1 fails, Phase 1.5 should run and set fragment params."""
+        phase1_done = [False]
+
+        def fake_probe_echo(size, timeout=2.0):
+            frag = self.device.serial_tx_fragment_size
+            if not phase1_done[0] and frag == 0:
+                # Phase 1: no fragmentation → fail
+                return {"passed": False, "error": "timeout"}
+            # With fragmentation enabled → succeed
+            return {"passed": True}
+
+        def fake_probe_echoback(size, timeout=3.0):
+            return {"passed": True, "size": size}
+
+        self.protocol._probe_echo = fake_probe_echo
+        self.protocol._probe_echoback = fake_probe_echoback
+
+        # After Phase 1 fails, mark it done so Phase 1.5/2/3 can succeed
+        orig_phase1 = self.protocol._phase_fragment_probe
+
+        def patched_phase1(timeout=2.0):
+            result = orig_phase1(timeout)
+            phase1_done[0] = True
+            return result
+
+        self.protocol._phase_fragment_probe = patched_phase1
+
+        results = self.protocol.test_serial_throughput(timeout=1.0)
+        self.assertTrue(results["success"])
+        self.assertTrue(results["fragment_needed"])
+        self.assertIn("recommended_fragment_size", results)
+        self.assertGreater(results["recommended_fragment_size"], 0)
+
+    def test_no_fragment_skips_phase_1_5(self):
+        """When Phase 1 succeeds, Phase 1.5 should not run."""
+        self.protocol._probe_echo = lambda size, timeout=2.0: {"passed": True}
+        self.protocol._probe_echoback = lambda size, timeout=3.0: {
+            "passed": True,
+            "size": size,
+        }
+
+        results = self.protocol.test_serial_throughput(timeout=1.0)
+        self.assertTrue(results["success"])
+        self.assertFalse(results["fragment_needed"])
+        self.assertNotIn("recommended_fragment_size", results)
+        self.assertNotIn("fragment_probe", results.get("phases", {}))
+
+
 if __name__ == "__main__":
     unittest.main()

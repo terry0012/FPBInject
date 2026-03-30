@@ -86,6 +86,33 @@ async function fpbTestSerial() {
         });
       }
 
+      /* Phase 1.5: Fragment size probe results */
+      const fragProbe = data.phases?.fragment_probe;
+      if (fragProbe) {
+        log.info('Phase 1.5 - TX Fragment Probe:');
+        if (fragProbe.tests) {
+          fragProbe.tests.forEach((test) => {
+            const status = test.passed ? '✓' : '✗';
+            if (test.phase === 'size') {
+              writeToOutput(
+                `  ${status} fragment_size=${test.fragment_size}B`,
+                test.passed ? 'success' : 'error',
+              );
+            } else if (test.phase === 'delay') {
+              writeToOutput(
+                `  ${status} fragment_delay=${test.fragment_delay * 1000}ms`,
+                test.passed ? 'success' : 'error',
+              );
+            }
+          });
+        }
+        if (fragProbe.success) {
+          log.success(
+            `Recommended TX fragment: ${fragProbe.recommended_fragment_size}B, delay=${fragProbe.recommended_fragment_delay * 1000}ms`,
+          );
+        }
+      }
+
       /* Phase 3: Download probe */
       const dlPhase = data.phases?.download;
       if (dlPhase && !dlPhase.skipped) {
@@ -118,25 +145,44 @@ async function fpbTestSerial() {
 
       const recUpload = data.recommended_upload_chunk_size;
       const recDownload = data.recommended_download_chunk_size;
+      const recFragSize = data.recommended_fragment_size || 0;
+      const recFragDelay = data.recommended_fragment_delay || 0;
       log.success(`Recommended upload chunk: ${recUpload} bytes`);
       log.success(`Recommended download chunk: ${recDownload} bytes`);
 
-      const apply = confirm(
+      let confirmMsg =
         `✅ ${t('messages.serial_test_complete', 'Test Complete')}\n\n` +
-          `Upload: ${recUpload}B, Download: ${recDownload}B\n\n` +
-          t('messages.apply_recommended_size', 'Apply recommended parameters?'),
-      );
+        `Upload: ${recUpload}B, Download: ${recDownload}B`;
+      if (recFragSize > 0) {
+        confirmMsg += `\nTX Fragment: ${recFragSize}B, Delay: ${recFragDelay * 1000}ms`;
+      }
+      confirmMsg +=
+        `\n\n` +
+        t('messages.apply_recommended_size', 'Apply recommended parameters?');
+
+      const apply = confirm(confirmMsg);
 
       if (apply) {
-        /* Apply both upload and download chunk sizes */
+        /* Apply upload and download chunk sizes */
         const uploadInput = document.getElementById('uploadChunkSize');
         const downloadInput = document.getElementById('downloadChunkSize');
         if (uploadInput) uploadInput.value = recUpload;
         if (downloadInput) downloadInput.value = recDownload;
+
+        /* Apply TX fragment params if probed */
+        if (recFragSize > 0) {
+          const fragInput = document.getElementById('serialTxFragmentSize');
+          const delayInput = document.getElementById('serialTxFragmentDelay');
+          if (fragInput) fragInput.value = recFragSize;
+          if (delayInput) delayInput.value = recFragDelay * 1000; // display as ms
+        }
+
         await saveConfig(true);
-        log.success(
-          `Parameters applied: upload=${recUpload}B, download=${recDownload}B`,
-        );
+        let msg = `Parameters applied: upload=${recUpload}B, download=${recDownload}B`;
+        if (recFragSize > 0) {
+          msg += `, TX fragment=${recFragSize}B, delay=${recFragDelay * 1000}ms`;
+        }
+        log.success(msg);
       } else {
         log.info('Parameters unchanged');
       }
