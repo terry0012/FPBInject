@@ -97,6 +97,11 @@ function buildDiagnosticMessage(errorCode, errorMsg) {
 async function refreshPorts() {
   try {
     const res = await fetch('/api/ports');
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      log.error(`Failed to refresh ports: ${data.error || res.statusText}`);
+      return;
+    }
     const data = await res.json();
     const sel = document.getElementById('portSelect');
     const prevValue = sel.value;

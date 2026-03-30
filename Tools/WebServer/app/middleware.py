@@ -12,7 +12,7 @@ Localhost requests are always allowed without authentication.
 
 import logging
 
-from flask import request, abort, after_this_request
+from flask import request, after_this_request, jsonify
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,11 @@ def init_auth(app, token):
         if request.remote_addr in LOCALHOST_ADDRS:
             return None
 
+        # Static resources are public (they contain no sensitive data,
+        # and the page itself is protected by token auth)
+        if request.path.startswith("/static/"):
+            return None
+
         # Check token from query, header, or cookie
         req_token = (
             request.args.get("token")
@@ -44,7 +49,14 @@ def init_auth(app, token):
 
         if req_token != token:
             logger.warning(f"Auth rejected: {request.remote_addr} -> {request.path}")
-            abort(403)
+            # Return JSON for API routes so frontend can parse the error
+            if request.path.startswith("/api/"):
+                response = jsonify({"success": False, "error": "Forbidden"})
+                response.status_code = 403
+            else:
+                response = app.make_response(("Forbidden", 403))
+            response.headers["Cache-Control"] = "no-store"
+            return response
 
         # Set cookie on first successful token auth via query/header
         if not request.cookies.get("fpbinject_token"):
